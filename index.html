@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="state-idle">
+  <div id="avatar">
+    <div id="orbWrap">
+      <img id="orb" src="avatar.png" />
+    </div>
+  </div>
+  <div id="debug">
+    <div id="debugTitle">State: <span id="stateLabel">state-idle</span></div>
+    <div id="debugButtons">
+      <button type="button" data-state="state-idle">Idle (1)</button>
+      <button type="button" data-state="state-listen">Listen (2)</button>
+      <button type="button" data-state="state-think">Think (3)</button>
+      <button type="button" data-state="state-talk">Talk (4)</button>
+    </div>
+    <div id="debugHint">Tip: clique dans la fenêtre pour lui donner le focus, puis teste 1/2/3/4 (ou Tab).</div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

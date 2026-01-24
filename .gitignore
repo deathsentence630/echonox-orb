@@ -1,0 +1,43 @@
+# Node / Electron
+node_modules/
+dist/
+out/
+
+# Logs
+*.log
+<<<<<<< HEAD
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+=======
+>>>>>>> 9c6ec61 (Initial commit – Echonox Orb prototype)
+
+# macOS
+.DS_Store
+
+<<<<<<< HEAD
+# Local data (memory, cache, user state)
+=======
+# Local data / memory
+>>>>>>> 9c6ec61 (Initial commit – Echonox Orb prototype)
+data/
+*.sqlite
+*.db
+
+<<<<<<< HEAD
+# Environment variables
+.env
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+=======
+# Env
+.env
+
+# Design / drafts
+*.afdesign
+>>>>>>> 9c6ec61 (Initial commit – Echonox Orb prototype)
