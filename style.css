@@ -149,3 +149,66 @@ body.state-talk #avatar img {
 #debugHint {
   opacity: 0.8;
 }
+
+
+/* =========================
+   LLM CHAT (temporaire)
+   ========================= */
+#chat {
+  margin-top: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+#chatInput {
+  width: 100%;
+  resize: none;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  padding: 8px 10px;
+  outline: none;
+}
+
+#chatInput:focus {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+#chatRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#chatSend {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+#chatSend:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+#chatStatus {
+  opacity: 0.8;
+  font-size: 12px;
+}
+
+#chatOutput {
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.22);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  padding: 8px 10px;
+}

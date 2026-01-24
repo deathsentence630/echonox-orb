@@ -11,16 +11,29 @@
       <img id="orb" src="avatar.png" />
     </div>
   </div>
+
   <div id="debug">
     <div id="debugTitle">State: <span id="stateLabel">state-idle</span></div>
+
     <div id="debugButtons">
       <button type="button" data-state="state-idle">Idle (1)</button>
       <button type="button" data-state="state-listen">Listen (2)</button>
       <button type="button" data-state="state-think">Think (3)</button>
       <button type="button" data-state="state-talk">Talk (4)</button>
     </div>
+
+    <div id="chat">
+      <textarea id="chatInput" rows="2" placeholder="Écris ici (Entrée = envoyer, Shift+Entrée = nouvelle ligne)"></textarea>
+      <div id="chatRow">
+        <button type="button" id="chatSend">Envoyer</button>
+        <span id="chatStatus"></span>
+      </div>
+      <div id="chatOutput"></div>
+    </div>
+
     <div id="debugHint">Tip: clique dans la fenêtre pour lui donner le focus, puis teste 1/2/3/4 (ou Tab).</div>
   </div>
+
   <script src="renderer.js"></script>
 </body>
 </html>
