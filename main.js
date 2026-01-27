@@ -8,6 +8,25 @@ let settingsWindow = null;
 let chatWindow = null;
 let debugWindow = null;
 
+const isMac = process.platform === 'darwin';
+
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
+
+function clampBoundsToWorkArea(bounds) {
+  try {
+    const wa = screen.getPrimaryDisplay().workArea;
+    const width = clamp(bounds.width, 1, wa.width);
+    const height = clamp(bounds.height, 1, wa.height);
+    const x = clamp(bounds.x, wa.x, wa.x + wa.width - width);
+    const y = clamp(bounds.y, wa.y, wa.y + wa.height - height);
+    return { x, y, width, height };
+  } catch (_) {
+    return bounds;
+  }
+}
+
 function positionOrbWindow(win) {
   // Default position: center-left of the primary display (work area)
   try {
@@ -39,11 +58,19 @@ function createOrbWindow() {
     minHeight: 220,
     maxWidth: 900,
     maxHeight: 900,
+
     frame: false,
     transparent: true,
-    resizable: true,
-    alwaysOnTop: true,
     hasShadow: false,
+
+    backgroundColor: '#00000000',
+
+    // We size/position the orb programmatically; avoid user-resize drift.
+    resizable: false,
+
+    alwaysOnTop: true,
+    skipTaskbar: true,
+
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -52,9 +79,6 @@ function createOrbWindow() {
 
   positionOrbWindow(orbWindow);
   orbWindow.loadFile('index.html');
-
-  // Prevent manual resize in HUD mode (we resize via settings)
-  orbWindow.setResizable(false);
 
   orbWindow.on('closed', () => {
     orbWindow = null;
@@ -89,8 +113,6 @@ function createControlWindow(kind) {
     existing.focus();
     return existing;
   }
-
-  const isMac = process.platform === 'darwin';
 
   const win = new BrowserWindow({
     width: 980,
@@ -139,6 +161,20 @@ app.whenReady().then(() => {
   globalShortcut.register('CommandOrControl+,', () => openControl('settings'));
   globalShortcut.register('CommandOrControl+Shift+C', () => openControl('chat'));
   globalShortcut.register('CommandOrControl+Shift+D', () => openControl('debug'));
+
+  // Keep orb visible if displays/work areas change.
+  const clampOrb = () => {
+    if (!orbWindow || orbWindow.isDestroyed()) return;
+    const b = orbWindow.getBounds();
+    const next = clampBoundsToWorkArea(b);
+    if (next.x !== b.x || next.y !== b.y || next.width !== b.width || next.height !== b.height) {
+      orbWindow.setBounds(next, false);
+    }
+  };
+
+  screen.on('display-metrics-changed', clampOrb);
+  screen.on('display-added', clampOrb);
+  screen.on('display-removed', clampOrb);
 });
 
 app.on('will-quit', () => {
@@ -161,27 +197,31 @@ ipcMain.on('window:setAlwaysOnTop', (_event, enabled) => {
 });
 
 // Resize ORB window to match orb size (called from Settings)
-ipcMain.on('orb:setSize', (_event, orbPx) => {
+ipcMain.on("orb:setSize", (_event, orbPx) => {
   if (!orbWindow || orbWindow.isDestroyed()) return;
 
-  const px = Math.max(120, Math.min(700, Number(orbPx) || 200));
+  const px = clamp(Number(orbPx) || 200, 120, 700);
 
-  // Add padding so glow/blur isn't clipped and controls have breathing room.
-  const PAD = 240;
-  const W = Math.max(220, Math.min(900, Math.round(px + PAD)));
-  const H = W;
+  // 1) Renderer: applique la taille de l'orbe (carré strict côté DOM)
+  orbWindow.webContents.send("orb:applySize", px);
 
-  const [x, y] = orbWindow.getPosition();
-  const [cw, ch] = orbWindow.getSize();
+  // 2) Window: ajuste la fenêtre pour coller à l'orbe (+ marge pour glow)
+  // Padding dynamique: petit orb => petite marge ; grand orb => marge suffisante.
+  const PAD = clamp(Math.round(px * 0.38), 120, 260);
+  const side = clamp(Math.round(px + PAD), 220, 900);
 
-  // Keep center position stable when resizing
-  const cx = x + cw / 2;
-  const cy = y + ch / 2;
+  const b = orbWindow.getBounds();
+  const cx = b.x + b.width / 2;
+  const cy = b.y + b.height / 2;
 
-  const nx = Math.round(cx - W / 2);
-  const ny = Math.round(cy - H / 2);
+  const next = clampBoundsToWorkArea({
+    x: Math.round(cx - side / 2),
+    y: Math.round(cy - side / 2),
+    width: side,
+    height: side,
+  });
 
-  orbWindow.setBounds({ x: nx, y: ny, width: W, height: H }, false);
+  orbWindow.setBounds(next, false);
 });
 
 // Open control windows (from nav links, etc.)

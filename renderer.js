@@ -101,14 +101,36 @@ function applySettingsToRuntime() {
   document.documentElement.style.setProperty("--accent-b", String(b));
 
   // Orb size (only exists on orb page)
-  const orb = $("orb");
-  if (orb) {
-    const size = Math.max(120, Number(settings.orbSize) || 200);
-    orb.style.width = `${size}px`;
-    orb.style.height = `${size}px`;
+  function applyOrbSize(px) {
+    const size = Math.max(120, Number(px) || 200);
+
+    // Keep a single source of truth for CSS (optional use in style.css)
+    document.documentElement.style.setProperty("--orb-size", `${size}px`);
+
+    // Orb page elements
+    const orbWrap = $("orbWrap");
+    const orb = $("orb");
+
+    if (orbWrap) {
+      orbWrap.style.width = `${size}px`;
+      orbWrap.style.height = `${size}px`;
+    }
+
+    if (orb) {
+      // Force a perfect square to avoid any accidental oval stretch.
+      orb.style.width = `${size}px`;
+      orb.style.height = `${size}px`;
+      orb.style.aspectRatio = "1 / 1";
+    }
+  }
+
+  // Orb size (only exists on orb page)
+  if ($("orb") || $("orbWrap")) {
+    applyOrbSize(settings.orbSize);
   }
 
   // Animations override (v1)
+  const orb = $("orb");
   if (orb) {
     if (settings.animations === "off") {
       orb.style.animation = "none";
@@ -122,6 +144,34 @@ function applySettingsToRuntime() {
     ipcRenderer.send("window:setAlwaysOnTop", !!settings.alwaysOnTop);
   } catch (_) {}
 }
+
+// =========================
+// IPC: apply orb size from main
+// =========================
+try {
+  ipcRenderer.on("orb:applySize", (_event, px) => {
+    // Apply immediately to orb DOM (no window resize).
+    const size = Math.max(120, Number(px) || 200);
+
+    // Update runtime settings so future applySettingsToRuntime() stays consistent,
+    // but do not persist here (settings page already persists).
+    settings = { ...settings, orbSize: size };
+
+    // Apply to DOM
+    document.documentElement.style.setProperty("--orb-size", `${size}px`);
+    const orbWrap = $("orbWrap");
+    const orb = $("orb");
+    if (orbWrap) {
+      orbWrap.style.width = `${size}px`;
+      orbWrap.style.height = `${size}px`;
+    }
+    if (orb) {
+      orb.style.width = `${size}px`;
+      orb.style.height = `${size}px`;
+      orb.style.aspectRatio = "1 / 1";
+    }
+  });
+} catch (_) {}
 
 // =========================
 // Cursor attraction + bloom (orb only)
