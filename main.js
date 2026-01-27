@@ -1,12 +1,47 @@
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut } = require('electron');
 
-function createWindow() {
-  const win = new BrowserWindow({
+// -------------------------
+// Window references (single instance each)
+// -------------------------
+let orbWindow = null;
+let settingsWindow = null;
+let chatWindow = null;
+let debugWindow = null;
+
+function positionOrbWindow(win) {
+  // Default position: center-left of the primary display (work area)
+  try {
+    const { x, y, width, height } = screen.getPrimaryDisplay().workArea;
+    const WIN_W = 620;
+    const WIN_H = 620;
+
+    // Place around the left quarter of the screen, centered vertically
+    const targetX = Math.round(x + (width * 0.25) - (WIN_W / 2));
+    const targetY = Math.round(y + (height / 2) - (WIN_H / 2));
+
+    win.setPosition(targetX, targetY, false);
+  } catch (_) {
+    // ignore
+  }
+}
+
+function createOrbWindow() {
+  if (orbWindow && !orbWindow.isDestroyed()) {
+    orbWindow.show();
+    orbWindow.focus();
+    return orbWindow;
+  }
+
+  orbWindow = new BrowserWindow({
     width: 620,
     height: 620,
+    minWidth: 220,
+    minHeight: 220,
+    maxWidth: 900,
+    maxHeight: 900,
     frame: false,
     transparent: true,
-    resizable: false,
+    resizable: true,
     alwaysOnTop: true,
     hasShadow: false,
     webPreferences: {
@@ -15,18 +50,157 @@ function createWindow() {
     },
   });
 
-  win.loadFile('index.html');
+  positionOrbWindow(orbWindow);
+  orbWindow.loadFile('index.html');
+
+  // Prevent manual resize in HUD mode (we resize via settings)
+  orbWindow.setResizable(false);
+
+  orbWindow.on('closed', () => {
+    orbWindow = null;
+  });
+
+  return orbWindow;
 }
 
-app.whenReady().then(createWindow);
+function centerWindow(win, w = 980, h = 720) {
+  try {
+    const { x, y, width, height } = screen.getPrimaryDisplay().workArea;
+    const targetX = Math.round(x + (width / 2) - (w / 2));
+    const targetY = Math.round(y + (height / 2) - (h / 2));
+    win.setPosition(targetX, targetY, false);
+  } catch (_) {}
+}
 
-// =========================
+function createControlWindow(kind) {
+  // kind: 'settings' | 'chat' | 'debug'
+  const map = {
+    settings: { ref: () => settingsWindow, set: (v) => (settingsWindow = v), file: 'settings.html', title: 'ECHONOX — Settings' },
+    chat: { ref: () => chatWindow, set: (v) => (chatWindow = v), file: 'chat.html', title: 'ECHONOX — Chat' },
+    debug: { ref: () => debugWindow, set: (v) => (debugWindow = v), file: 'debug.html', title: 'ECHONOX — Debug' },
+  };
+
+  const cfg = map[kind];
+  if (!cfg) return null;
+
+  const existing = cfg.ref();
+  if (existing && !existing.isDestroyed()) {
+    existing.show();
+    existing.focus();
+    return existing;
+  }
+
+  const isMac = process.platform === 'darwin';
+
+  const win = new BrowserWindow({
+    width: 980,
+    height: 720,
+
+    // HUD-style window (macOS)
+    frame: false,
+    transparent: isMac ? true : false,
+    vibrancy: isMac ? 'hud' : undefined,
+    visualEffectState: isMac ? 'active' : undefined,
+    backgroundColor: isMac ? '#00000000' : '#0b0b10',
+
+    resizable: true,
+    alwaysOnTop: false,
+    title: cfg.title,
+
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+    },
+  });
+
+  centerWindow(win, 980, 720);
+  win.loadFile(cfg.file);
+
+  win.on('closed', () => cfg.set(null));
+
+  cfg.set(win);
+  return win;
+}
+
+function openControl(kind) {
+  return createControlWindow(kind);
+}
+
+// -------------------------
+// App lifecycle
+// -------------------------
+app.whenReady().then(() => {
+  createOrbWindow();
+
+  // Global shortcuts (open on demand)
+  // - Settings: Cmd/Ctrl + ,
+  // - Chat: Cmd/Ctrl + Shift + C
+  // - Debug: Cmd/Ctrl + Shift + D
+  globalShortcut.register('CommandOrControl+,', () => openControl('settings'));
+  globalShortcut.register('CommandOrControl+Shift+C', () => openControl('chat'));
+  globalShortcut.register('CommandOrControl+Shift+D', () => openControl('debug'));
+});
+
+app.on('will-quit', () => {
+  // Unregister all shortcuts.
+  globalShortcut.unregisterAll();
+});
+
+app.on('activate', () => {
+  // macOS: recreate orb window if none exists
+  if (!orbWindow || orbWindow.isDestroyed()) createOrbWindow();
+});
+
+// -------------------------
+// IPC: Window controls
+// -------------------------
+// Always-on-top applies to ORB window only.
+ipcMain.on('window:setAlwaysOnTop', (_event, enabled) => {
+  if (!orbWindow || orbWindow.isDestroyed()) return;
+  orbWindow.setAlwaysOnTop(!!enabled);
+});
+
+// Resize ORB window to match orb size (called from Settings)
+ipcMain.on('orb:setSize', (_event, orbPx) => {
+  if (!orbWindow || orbWindow.isDestroyed()) return;
+
+  const px = Math.max(120, Math.min(700, Number(orbPx) || 200));
+
+  // Add padding so glow/blur isn't clipped and controls have breathing room.
+  const PAD = 240;
+  const W = Math.max(220, Math.min(900, Math.round(px + PAD)));
+  const H = W;
+
+  const [x, y] = orbWindow.getPosition();
+  const [cw, ch] = orbWindow.getSize();
+
+  // Keep center position stable when resizing
+  const cx = x + cw / 2;
+  const cy = y + ch / 2;
+
+  const nx = Math.round(cx - W / 2);
+  const ny = Math.round(cy - H / 2);
+
+  orbWindow.setBounds({ x: nx, y: ny, width: W, height: H }, false);
+});
+
+// Open control windows (from nav links, etc.)
+ipcMain.on('control:open', (_event, kind) => {
+  const k = String(kind || '').toLowerCase();
+  if (k === 'settings' || k === 'chat' || k === 'debug') openControl(k);
+});
+
+// -------------------------
 // Local LLM (Ollama) bridge
-// =========================
+// -------------------------
 // Privacy-first: calls only localhost by default.
 ipcMain.handle('llm:chat', async (_event, payload) => {
   const baseUrl = process.env.LLM_BASE_URL || 'http://127.0.0.1:11434';
-  const model = process.env.LLM_MODEL || 'qwen2.5:7b';
+
+  // Allow per-request model override from UI (settings.model), fallback to env/default.
+  const requestedModel = typeof payload?.model === 'string' ? payload.model.trim() : '';
+  const model = requestedModel || process.env.LLM_MODEL || 'qwen2.5:7b';
+
   const messages = Array.isArray(payload?.messages) ? payload.messages : [];
 
   console.log(`[llm:chat] called (messages=${messages.length}) model=${model}`);
@@ -44,8 +218,7 @@ ipcMain.handle('llm:chat', async (_event, payload) => {
       const isLocalhost = host === '127.0.0.1' || host === 'localhost' || host === '::1';
       if (!isLocalhost) {
         throw new Error(
-          `Refusé: LLM_BASE_URL pointe vers '${host}'. (Privacy-first)
-Pour autoriser, définir LLM_ALLOW_REMOTE=1.`
+          `Refusé: LLM_BASE_URL pointe vers '${host}'. (Privacy-first)\nPour autoriser, définir LLM_ALLOW_REMOTE=1.`
         );
       }
     } catch (e) {
