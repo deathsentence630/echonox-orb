@@ -458,13 +458,74 @@ window.addEventListener("keydown", (e) => {
 });
 
 // =========================
+// Window fit-to-content (settings/chat/debug)
+// =========================
+let __fitToContentTmr = null;
+function requestFitToContent() {
+  clearTimeout(__fitToContentTmr);
+  __fitToContentTmr = setTimeout(() => {
+    try {
+      // Wait for the DOM/layout to settle (tab panel visibility changes happen in CSS).
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            ipcRenderer.invoke("window:fitToContent");
+          } catch (_) {}
+        });
+      });
+    } catch (_) {}
+  }, 80);
+}
+
+// =========================
+// HUD close button (settings/chat/debug)
+// =========================
+function initHudCloseButton() {
+  const btn = document.querySelector(".hudClose");
+  if (!btn) return;
+
+  btn.addEventListener("click", () => {
+    try {
+      ipcRenderer.invoke("window:close");
+    } catch (_) {}
+  });
+}
+
+// =========================
 // Boot
 // =========================
 document.addEventListener("DOMContentLoaded", () => {
   // Ensure vars are set early
   applySettingsToRuntime();
 
+  // Wire HUD close button if present (settings/chat/debug)
+  initHudCloseButton();
+
   const p = pageName();
+
+  // Control pages: fit window to visible tab content.
+  const isControl = (p === "settings" || p === "chat" || p === "debug");
+
+  if (isControl) {
+    // When switching tabs (radio-driven), refit.
+    document.addEventListener("change", (e) => {
+      const t = e.target;
+      if (!t || t.tagName !== "INPUT" || t.type !== "radio") return;
+      const name = t.name;
+      if (name === "settingsTab" || name === "chatTab" || name === "debugTab") {
+        requestFitToContent();
+      }
+    });
+
+    // Also refit on tab label clicks (more reliable than change in some HUD drag setups)
+    document.addEventListener("click", (e) => {
+      const el = e.target;
+      if (!el) return;
+      if (el.classList && (el.classList.contains("settingsTab") || el.classList.contains("chatTab") || el.classList.contains("debugTab"))) {
+        requestFitToContent();
+      }
+    });
+  }
 
   if (p === "orb") {
     setState("state-idle");
@@ -481,5 +542,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (p === "debug") {
     initDebugPage();
+  }
+
+  // Initial fit (after UI wiring has potentially changed layout)
+  if (isControl) {
+    requestFitToContent();
   }
 });

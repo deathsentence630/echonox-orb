@@ -9,71 +9,69 @@
   <title>ECHONOX — Debug</title>
 </head>
 <body data-page="debug">
-  <div class="controlRoot">
-    <header class="controlHeader">
-      <div class="brand">
-        <div class="brandTitle">ECHONOX</div>
-        <div class="brandSub">Control Center</div>
-      </div>
-
+  <section class="panel" id="debugPanel">
+    <div class="panelHeader">
       <nav class="controlNav">
         <a class="navItem" href="settings.html">Settings</a>
         <a class="navItem" href="chat.html">Chat</a>
         <a class="navItem navActive" href="debug.html">Debug</a>
       </nav>
-    </header>
+      <button
+        type="button"
+        class="hudClose"
+        aria-label="Fermer"
+        title="Fermer"
+      >✕</button>
+    </div>
 
-    <main class="controlMain">
-      <section class="panel" id="debugPanel">
-        <div class="panelHeader">
-          <span>Debug</span>
-        </div>
+    <div class="panelContent">
+      <input type="radio" name="debugTab" id="debug-tab-states" checked />
+      <input type="radio" name="debugTab" id="debug-tab-runtime" />
+      <input type="radio" name="debugTab" id="debug-tab-metrics" />
 
-        <div class="panelContent">
-          <!-- STATES (simple debug) -->
-          <section>
-            <h3>États</h3>
-            <div class="inline" style="gap: 8px; flex-wrap: wrap;">
-              <button type="button" data-state="state-idle">Idle (1)</button>
-              <button type="button" data-state="state-listen">Listen (2)</button>
-              <button type="button" data-state="state-think">Think (3)</button>
-              <button type="button" data-state="state-talk">Talk (4)</button>
-            </div>
-            <div class="muted" style="margin-top: 6px;">
-              Raccourcis : 1/2/3/4 • Tab = cycle
-            </div>
-          </section>
+      <div class="debugTabs" role="tablist" aria-label="Sections du debug">
+        <label class="debugTab" for="debug-tab-states" role="tab" aria-controls="debug-panel-states">États</label>
+        <label class="debugTab" for="debug-tab-runtime" role="tab" aria-controls="debug-panel-runtime">Runtime</label>
+        <label class="debugTab" for="debug-tab-metrics" role="tab" aria-controls="debug-panel-metrics">Métriques</label>
+      </div>
 
-          <!-- RUNTIME (advanced debug placeholder) -->
-          <section>
-            <h3>Runtime</h3>
-            <div class="kv">
-              <div class="k">Page</div><div class="v" id="dbg-page">debug</div>
-              <div class="k">Debug level</div><div class="v" id="dbg-level">—</div>
-              <div class="k">Model</div><div class="v" id="dbg-model">—</div>
-              <div class="k">LLM base URL</div><div class="v" id="dbg-baseurl">—</div>
-            </div>
-          </section>
+      <div class="debugPanels">
+        <section class="tabPanel" id="debug-panel-states" role="tabpanel" aria-labelledby="debug-tab-states">
+          <h3>États</h3>
+          <div class="inline" style="gap: 8px; flex-wrap: wrap;">
+            <button type="button" data-state="state-idle">Idle (1)</button>
+            <button type="button" data-state="state-listen">Listen (2)</button>
+            <button type="button" data-state="state-think">Think (3)</button>
+            <button type="button" data-state="state-talk">Talk (4)</button>
+          </div>
+          <div class="muted" style="margin-top: 6px;">
+            Raccourcis : 1/2/3/4 • Tab = cycle
+          </div>
+        </section>
 
-          <!-- METRICS (expert debug placeholder) -->
-          <section>
-            <h3>Métriques</h3>
-            <div class="kv">
-              <div class="k">Dernier temps LLM</div><div class="v" id="dbg-last-ms">—</div>
-              <div class="k">RAM (approx.)</div><div class="v" id="dbg-ram">—</div>
-            </div>
-            <div class="muted" style="margin-top: 6px;">
-              (Affichage conditionnel selon le niveau de debug — à brancher)
-            </div>
-          </section>
-        </div>
-      </section>
-    </main>
+        <section class="tabPanel" id="debug-panel-runtime" role="tabpanel" aria-labelledby="debug-tab-runtime">
+          <h3>Runtime</h3>
+          <div class="kv">
+            <div class="k">Page</div><div class="v" id="dbg-page">debug</div>
+            <div class="k">Debug level</div><div class="v" id="dbg-level">—</div>
+            <div class="k">Model</div><div class="v" id="dbg-model">—</div>
+            <div class="k">LLM base URL</div><div class="v" id="dbg-baseurl">—</div>
+          </div>
+        </section>
 
-    <footer class="controlFooter">
-      <span>Privacy-first • Local-first • Open source</span>
-    </footer>
-  </div>
+        <section class="tabPanel" id="debug-panel-metrics" role="tabpanel" aria-labelledby="debug-tab-metrics">
+          <h3>Métriques</h3>
+          <div class="kv">
+            <div class="k">Dernier temps LLM</div><div class="v" id="dbg-last-ms">—</div>
+            <div class="k">RAM (approx.)</div><div class="v" id="dbg-ram">—</div>
+          </div>
+          <div class="muted" style="margin-top: 6px;">
+            (Affichage conditionnel selon le niveau de debug — à brancher)
+          </div>
+        </section>
+      </div>
+    </div>
+  </section>
 
   <script src="renderer.js"></script>
 </body>

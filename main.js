@@ -62,7 +62,6 @@ function createOrbWindow() {
     frame: false,
     transparent: true,
     hasShadow: false,
-
     backgroundColor: '#00000000',
 
     // We size/position the orb programmatically; avoid user-resize drift.
@@ -95,6 +94,95 @@ function centerWindow(win, w = 980, h = 720) {
     win.setPosition(targetX, targetY, false);
   } catch (_) {}
 }
+// Fit a control window to its panel content (used when switching tabs)
+async function fitWindowToPanelContent(win) {
+  if (!win || win.isDestroyed()) return;
+
+  try {
+    const measured = await win.webContents.executeJavaScript(`(() => {
+      const panel = document.querySelector('.panel');
+      if (!panel) return { height: 520 };
+
+      const header = panel.querySelector('.panelHeader');
+      const content = panel.querySelector('.panelContent');
+
+      const headerH = header ? Math.ceil(header.getBoundingClientRect().height) : 0;
+
+      // Panel padding/border (so the window actually fits the glass container)
+      const ps = window.getComputedStyle(panel);
+      const padTop = parseFloat(ps.paddingTop) || 0;
+      const padBottom = parseFloat(ps.paddingBottom) || 0;
+      const borderTop = parseFloat(ps.borderTopWidth) || 0;
+      const borderBottom = parseFloat(ps.borderBottomWidth) || 0;
+      const panelFrame = Math.ceil(padTop + padBottom + borderTop + borderBottom);
+
+      // Default target if we can't measure anything else
+      let targetHeight = headerH + panelFrame + 32;
+
+      if (content) {
+        // Temporarily remove constraints so we can measure intrinsic sizes.
+        const prevHeight = content.style.height;
+        const prevFlex = content.style.flex;
+        const prevMinH = content.style.minHeight;
+        const prevOverflow = content.style.overflow;
+
+        content.style.height = 'auto';
+        content.style.flex = '0 0 auto';
+        content.style.minHeight = '0';
+        content.style.overflow = 'visible';
+
+        // Tight measurement: visible tabPanel if present, else the whole content.
+        const panels = Array.from(content.querySelectorAll('.tabPanel'));
+        const visiblePanel = panels.find((el) => {
+          const cs = window.getComputedStyle(el);
+          return cs.display !== 'none' && cs.visibility !== 'hidden';
+        });
+        const target = visiblePanel || content;
+
+        const tightBreathing = 14;
+        const scrollBreathing = 24;
+        const threshold = 4; // px
+
+        const tight = Math.ceil(headerH + panelFrame + target.getBoundingClientRect().height + tightBreathing);
+        const scroll = Math.ceil(panel.scrollHeight + scrollBreathing);
+
+        // Use scrollHeight only when it's meaningfully larger (fixes macOS range overflow on Appearance)
+        targetHeight = (scroll > tight + threshold) ? scroll : tight;
+
+        // Restore
+        content.style.height = prevHeight;
+        content.style.flex = prevFlex;
+        content.style.minHeight = prevMinH;
+        content.style.overflow = prevOverflow;
+      } else {
+        // No content container; fall back to scrollHeight
+        targetHeight = Math.ceil(panel.scrollHeight + 24);
+      }
+
+      return { height: targetHeight };
+    })()`);
+
+    const b = win.getBounds();
+    const nextH = clamp(Number(measured?.height) || b.height, 80, 1400);
+
+    // Keep width; adjust height only; keep center stable.
+    const cx = b.x + b.width / 2;
+    const cy = b.y + b.height / 2;
+
+    const next = clampBoundsToWorkArea({
+      x: Math.round(cx - b.width / 2),
+      y: Math.round(cy - nextH / 2),
+      width: b.width,
+      height: nextH,
+    });
+
+    win.setBounds(next, false);
+    console.log("FIT bounds after:", win.getBounds(), "measured:", measured);
+  } catch (_) {
+    // ignore
+  }
+}
+
 
 function createControlWindow(kind) {
   // kind: 'settings' | 'chat' | 'debug'
@@ -115,18 +203,23 @@ function createControlWindow(kind) {
   }
 
   const win = new BrowserWindow({
-    width: 980,
-    height: 720,
+    width: 560,
+    height: 500,
 
-    // HUD-style window (macOS)
+    // HUD-style window
     frame: false,
-    transparent: isMac ? true : false,
-    vibrancy: isMac ? 'hud' : undefined,
-    visualEffectState: isMac ? 'active' : undefined,
-    backgroundColor: isMac ? '#00000000' : '#0b0b10',
-
-    resizable: true,
+    transparent: true,
+    //vibrancy: true,
+    visualEffectState: "active",
+    backgroundColor: "#000000c1",
+    hasShadow: false,
+    roundedCorners: true,
     alwaysOnTop: false,
+    skipTaskbar: true,
+    resizable: false,
+    minWidth: 420,
+    minHeight: 10,
+    
     title: cfg.title,
 
     webPreferences: {
@@ -135,7 +228,8 @@ function createControlWindow(kind) {
     },
   });
 
-  centerWindow(win, 980, 720);
+  centerWindow(win, 560, 520);
+
   win.loadFile(cfg.file);
 
   win.on('closed', () => cfg.set(null));
@@ -178,35 +272,30 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
-  // Unregister all shortcuts.
   globalShortcut.unregisterAll();
 });
 
 app.on('activate', () => {
-  // macOS: recreate orb window if none exists
   if (!orbWindow || orbWindow.isDestroyed()) createOrbWindow();
 });
 
 // -------------------------
 // IPC: Window controls
 // -------------------------
-// Always-on-top applies to ORB window only.
 ipcMain.on('window:setAlwaysOnTop', (_event, enabled) => {
   if (!orbWindow || orbWindow.isDestroyed()) return;
   orbWindow.setAlwaysOnTop(!!enabled);
 });
 
-// Resize ORB window to match orb size (called from Settings)
-ipcMain.on("orb:setSize", (_event, orbPx) => {
+ipcMain.on('orb:setSize', (_event, orbPx) => {
   if (!orbWindow || orbWindow.isDestroyed()) return;
 
   const px = clamp(Number(orbPx) || 200, 120, 700);
 
-  // 1) Renderer: applique la taille de l'orbe (carré strict côté DOM)
-  orbWindow.webContents.send("orb:applySize", px);
+  // 1) Renderer: apply orb size (square)
+  orbWindow.webContents.send('orb:applySize', px);
 
-  // 2) Window: ajuste la fenêtre pour coller à l'orbe (+ marge pour glow)
-  // Padding dynamique: petit orb => petite marge ; grand orb => marge suffisante.
+  // 2) Window: adjust bounds around orb (+ glow padding)
   const PAD = clamp(Math.round(px * 0.38), 120, 260);
   const side = clamp(Math.round(px + PAD), 220, 900);
 
@@ -224,20 +313,32 @@ ipcMain.on("orb:setSize", (_event, orbPx) => {
   orbWindow.setBounds(next, false);
 });
 
-// Open control windows (from nav links, etc.)
 ipcMain.on('control:open', (_event, kind) => {
   const k = String(kind || '').toLowerCase();
   if (k === 'settings' || k === 'chat' || k === 'debug') openControl(k);
 });
 
+ipcMain.handle('window:close', (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win && !win.isDestroyed()) win.close();
+});
+
+ipcMain.handle('window:fitToContent', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win || win.isDestroyed()) return;
+
+  try {
+    await fitWindowToPanelContent(win);
+  } catch (e) {
+  }
+});
+
 // -------------------------
 // Local LLM (Ollama) bridge
 // -------------------------
-// Privacy-first: calls only localhost by default.
 ipcMain.handle('llm:chat', async (_event, payload) => {
   const baseUrl = process.env.LLM_BASE_URL || 'http://127.0.0.1:11434';
 
-  // Allow per-request model override from UI (settings.model), fallback to env/default.
   const requestedModel = typeof payload?.model === 'string' ? payload.model.trim() : '';
   const model = requestedModel || process.env.LLM_MODEL || 'qwen2.5:7b';
 
@@ -249,7 +350,6 @@ ipcMain.handle('llm:chat', async (_event, payload) => {
 
   const url = `${baseUrl.replace(/\/$/, '')}/api/chat`;
 
-  // Guardrail: refuse non-localhost unless the user explicitly sets LLM_ALLOW_REMOTE=1
   const allowRemote = process.env.LLM_ALLOW_REMOTE === '1';
   if (!allowRemote) {
     try {

@@ -7,54 +7,57 @@
   <title>ECHONOX — Chat</title>
 </head>
 <body data-page="chat">
-  <div class="controlRoot">
-    <header class="controlHeader">
-      <div class="brand">
-        <div class="brandTitle">ECHONOX</div>
-        <div class="brandSub">Control Center</div>
-      </div>
-
-      <nav class="controlNav">
-        <a class="navItem" href="settings.html">Settings</a>
-        <a class="navItem navActive" href="chat.html">Chat</a>
-        <a class="navItem" href="debug.html">Debug</a>
-      </nav>
-    </header>
-
-    <main class="controlMain">
-      <section class="panel" id="chatPanel">
+  <section class="panel" id="chatPanel">
         <div class="panelHeader">
-          <span>Chat</span>
+          <nav class="controlNav">
+            <a class="navItem" href="settings.html">Settings</a>
+            <a class="navItem navActive" href="chat.html">Chat</a>
+            <a class="navItem" href="debug.html">Debug</a>
+          </nav>
+          <button
+            type="button"
+            class="hudClose"
+            aria-label="Fermer"
+            title="Fermer"
+          >✕</button>
         </div>
 
         <div class="panelContent">
-          <section>
-            <h3>Conversation</h3>
+          <!-- Chat tabs (CSS will be added in style.css) -->
+          <input type="radio" name="chatTab" id="chat-tab-compose" checked />
+          <input type="radio" name="chatTab" id="chat-tab-history" />
 
-            <label>
-              Message
-              <textarea
-                id="chatInput"
-                rows="3"
-                placeholder="Écris ici (Entrée = envoyer, Shift+Entrée = nouvelle ligne)"
-              ></textarea>
-            </label>
+          <div class="chatTabs" role="tablist" aria-label="Sections du chat">
+            <label class="chatTab" for="chat-tab-compose" role="tab" aria-controls="chat-panel-compose">Composer</label>
+            <label class="chatTab" for="chat-tab-history" role="tab" aria-controls="chat-panel-history">Historique</label>
+          </div>
 
-            <div class="inline" style="justify-content: space-between;">
-              <button type="button" id="chatSend">Envoyer</button>
-              <span id="chatStatus"></span>
-            </div>
+          <div class="chatPanels">
+            <section class="tabPanel" id="chat-panel-compose" role="tabpanel" aria-labelledby="chat-tab-compose">
+              <h3>Conversation</h3>
 
-            <div id="chatOutput"></div>
-          </section>
+              <label>
+                Message
+                <textarea
+                  id="chatInput"
+                  rows="3"
+                  placeholder="Écris ici (Entrée = envoyer, Shift+Entrée = nouvelle ligne)"
+                ></textarea>
+              </label>
+
+              <div class="inline" style="justify-content: space-between;">
+                <button type="button" id="chatSend">Envoyer</button>
+                <span id="chatStatus"></span>
+              </div>
+            </section>
+
+            <section class="tabPanel" id="chat-panel-history" role="tabpanel" aria-labelledby="chat-tab-history">
+              <h3>Historique</h3>
+              <div id="chatOutput"></div>
+            </section>
+          </div>
         </div>
-      </section>
-    </main>
-
-    <footer class="controlFooter">
-      <span>Privacy-first • Local-first • Open source</span>
-    </footer>
-  </div>
+  </section>
 
   <script src="renderer.js"></script>
 </body>
