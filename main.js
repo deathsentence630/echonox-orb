@@ -1,4 +1,8 @@
-const { app, BrowserWindow, ipcMain, screen, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, globalShortcut, safeStorage } = require('electron');
+
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 // -------------------------
 // Window references (single instance each)
@@ -93,6 +97,82 @@ function centerWindow(win, w = 980, h = 720) {
     const targetY = Math.round(y + (height / 2) - (h / 2));
     win.setPosition(targetX, targetY, false);
   } catch (_) {}
+}
+// -------------------------
+// Encrypted chat history (multi-thread) via safeStorage
+// -------------------------
+const CHAT_STORE_VERSION = 1;
+
+function chatStorePath() {
+  return path.join(app.getPath('userData'), 'chat-threads.enc');
+}
+
+function defaultChatStore() {
+  return { version: CHAT_STORE_VERSION, activeId: null, threads: [] };
+}
+
+function readChatStore() {
+  const p = chatStorePath();
+  if (!fs.existsSync(p)) return defaultChatStore();
+
+  const raw = fs.readFileSync(p);
+
+  if (!safeStorage.isEncryptionAvailable()) {
+    // We refuse to load plaintext if encryption isn't available, to keep the guarantee.
+    // Return a fresh store instead of leaking readable content.
+    return defaultChatStore();
+  }
+
+  try {
+    const json = safeStorage.decryptString(raw);
+    const data = JSON.parse(json);
+    if (!data || data.version !== CHAT_STORE_VERSION || !Array.isArray(data.threads)) {
+      return defaultChatStore();
+    }
+    return data;
+  } catch (_) {
+    return defaultChatStore();
+  }
+}
+
+function writeChatStore(store) {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error('safeStorage encryption is not available on this system.');
+  }
+
+  const p = chatStorePath();
+  const json = JSON.stringify(store);
+  const enc = safeStorage.encryptString(json);
+  fs.writeFileSync(p, enc);
+}
+
+function newThreadId() {
+  try {
+    if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  } catch (_) {}
+  return `t_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
+function findThread(store, id) {
+  return store.threads.find((t) => t.id === id) || null;
+}
+
+function clampTitle(s) {
+  const t = String(s || '').trim();
+  return t.length > 80 ? t.slice(0, 80) : t;
+}
+
+function deriveTitleFromFirstUserMessage(messages) {
+  const firstUser = (messages || []).find((m) => m && m.role === 'user' && typeof m.content === 'string');
+  if (!firstUser) return 'Nouvelle conversation';
+  const oneLine = firstUser.content.replace(/\s+/g, ' ').trim();
+  return clampTitle(oneLine.slice(0, 48) || 'Nouvelle conversation');
+}
+
+function touchThread(t) {
+  const now = Date.now();
+  if (!t.createdAt) t.createdAt = now;
+  t.updatedAt = now;
 }
 // Fit a control window to its panel content (used when switching tabs)
 async function fitWindowToPanelContent(win) {
@@ -216,9 +296,11 @@ function createControlWindow(kind) {
     roundedCorners: true,
     alwaysOnTop: false,
     skipTaskbar: true,
-    resizable: false,
+    resizable: true,
     minWidth: 420,
-    minHeight: 10,
+    minHeight: 320,
+    maxWidth: 980,
+    maxHeight: 760,
     
     title: cfg.title,
 
@@ -331,6 +413,143 @@ ipcMain.handle('window:fitToContent', async (event) => {
     await fitWindowToPanelContent(win);
   } catch (e) {
   }
+});
+
+// -------------------------
+// IPC: Encrypted chat threads (multi-conversation)
+// -------------------------
+
+ipcMain.handle('chat:threads:list', () => {
+  const store = readChatStore();
+  // Return summaries only (no message bodies)
+  const threads = store.threads
+    .slice()
+    .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    .map((t) => ({
+      id: t.id,
+      title: t.title,
+      createdAt: t.createdAt || 0,
+      updatedAt: t.updatedAt || 0,
+    }));
+  return { activeId: store.activeId, threads };
+});
+
+ipcMain.handle('chat:threads:create', (_event, payload) => {
+  const store = readChatStore();
+
+  const id = newThreadId();
+  const now = Date.now();
+
+  const thread = {
+    id,
+    title: clampTitle(payload?.title) || 'Nouvelle conversation',
+    createdAt: now,
+    updatedAt: now,
+    messages: Array.isArray(payload?.messages) ? payload.messages : [],
+  };
+
+  // Auto title if messages provided and title is default
+  if (!payload?.title && Array.isArray(thread.messages) && thread.messages.length) {
+    thread.title = deriveTitleFromFirstUserMessage(thread.messages);
+  }
+
+  store.threads.push(thread);
+  store.activeId = id;
+
+  writeChatStore(store);
+
+  return { id };
+});
+
+ipcMain.handle('chat:threads:delete', (_event, id) => {
+  const store = readChatStore();
+  const before = store.threads.length;
+  store.threads = store.threads.filter((t) => t.id !== String(id));
+
+  if (store.activeId === String(id)) {
+    store.activeId = store.threads.length ? store.threads[0].id : null;
+  }
+
+  if (store.threads.length !== before) {
+    writeChatStore(store);
+  }
+
+  return { ok: true, activeId: store.activeId };
+});
+
+ipcMain.handle('chat:threads:setActive', (_event, id) => {
+  const store = readChatStore();
+  const tid = String(id || '');
+  if (tid && findThread(store, tid)) {
+    store.activeId = tid;
+    writeChatStore(store);
+    return { ok: true };
+  }
+  return { ok: false };
+});
+
+ipcMain.handle('chat:threads:load', (_event, id) => {
+  const store = readChatStore();
+  const tid = String(id || store.activeId || '');
+  const t = tid ? findThread(store, tid) : null;
+  if (!t) return { ok: false, thread: null };
+
+  // Return full thread
+  return {
+    ok: true,
+    thread: {
+      id: t.id,
+      title: t.title,
+      createdAt: t.createdAt || 0,
+      updatedAt: t.updatedAt || 0,
+      messages: Array.isArray(t.messages) ? t.messages : [],
+    },
+  };
+});
+
+ipcMain.handle('chat:threads:append', (_event, payload) => {
+  const store = readChatStore();
+  const tid = String(payload?.id || store.activeId || '');
+  if (!tid) return { ok: false };
+
+  const t = findThread(store, tid);
+  if (!t) return { ok: false };
+
+  const role = String(payload?.role || '');
+  const content = String(payload?.content || '');
+  if (!role || !content) return { ok: false };
+
+  if (!Array.isArray(t.messages)) t.messages = [];
+
+  t.messages.push({ role, content, ts: Date.now() });
+
+  // Auto-title on first user message if still default
+  if (!t.title || t.title === 'Nouvelle conversation') {
+    t.title = deriveTitleFromFirstUserMessage(t.messages);
+  }
+
+  touchThread(t);
+  store.activeId = tid;
+
+  writeChatStore(store);
+
+  return { ok: true };
+});
+
+ipcMain.handle('chat:threads:rename', (_event, payload) => {
+  const store = readChatStore();
+  const tid = String(payload?.id || '');
+  const t = tid ? findThread(store, tid) : null;
+  if (!t) return { ok: false };
+
+  const title = clampTitle(payload?.title);
+  if (!title) return { ok: false };
+
+  t.title = title;
+  touchThread(t);
+  writeChatStore(store);
+
+  return { ok: true };
 });
 
 // -------------------------

@@ -267,7 +267,30 @@ function initChat() {
   const chatStatus = $("chatStatus");
   if (!chatInput || !chatSend || !chatOutput || !chatStatus) return;
 
-  const memory = [
+  // Sidebar UI (chat.html)
+  const chatSidebar = $("chatSidebar");
+  const chatSidebarToggle = $("chatSidebarToggle");
+  const chatThreadList = $("chatThreadList");
+  const chatNewThread = $("chatNewThread");
+
+  const CHAT_UI_KEY = "echonox.chatUi.v1";
+  function loadChatUi() {
+    try {
+      const raw = localStorage.getItem(CHAT_UI_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch (_) {
+      return {};
+    }
+  }
+  function saveChatUi(patch) {
+    try {
+      const cur = loadChatUi();
+      localStorage.setItem(CHAT_UI_KEY, JSON.stringify({ ...cur, ...(patch || {}) }));
+    } catch (_) {}
+  }
+  const chatUi = loadChatUi();
+
+  let memory = [
     {
       role: "system",
       content:
@@ -280,13 +303,210 @@ function initChat() {
     },
   ];
 
+  let activeThreadId = null;
+
+  let threadsCache = [];
+
+  function setSidebarVisible(visible) {
+    if (!chatSidebar) return;
+    chatSidebar.style.display = visible ? "block" : "none";
+    saveChatUi({ sidebarHidden: !visible });
+  }
+
+  function renderThreadList() {
+    if (!chatThreadList) return;
+    chatThreadList.innerHTML = "";
+
+    threadsCache.forEach((t) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.dataset.threadId = t.id;
+
+      item.textContent = t.title || "Conversation";
+
+      item.style.display = "flex";
+      item.style.alignItems = "center";
+      item.style.justifyContent = "space-between";
+      item.style.gap = "10px";
+      item.style.width = "100%";
+
+      item.style.padding = "10px 12px";
+      item.style.borderRadius = "12px";
+      item.style.border = "1px solid rgba(255,255,255,0.14)";
+      item.style.background = (t.id === activeThreadId)
+        ? "rgba(120,120,255,0.18)"
+        : "rgba(255,255,255,0.06)";
+      item.style.color = "rgba(255,255,255,0.92)";
+      item.style.cursor = "pointer";
+      item.style.textAlign = "left";
+
+      // Small timestamp hint (right aligned)
+      const right = document.createElement("span");
+      right.style.opacity = "0.7";
+      right.style.fontSize = "11px";
+      const ts = Number(t.updatedAt || t.createdAt || 0);
+      right.textContent = ts ? new Date(ts).toLocaleDateString() : "";
+      item.appendChild(right);
+
+      item.addEventListener("click", async () => {
+        const tid = item.dataset.threadId;
+        if (!tid || tid === activeThreadId) return;
+        activeThreadId = tid;
+        try { await ipcRenderer.invoke("chat:threads:setActive", activeThreadId); } catch (_) {}
+        await loadActiveThread();
+        await refreshThreads();
+      });
+
+      chatThreadList.appendChild(item);
+    });
+  }
+
+  async function refreshThreads() {
+    try {
+      const list = await ipcRenderer.invoke("chat:threads:list");
+      threadsCache = Array.isArray(list?.threads) ? list.threads : [];
+      // Keep activeId in sync
+      if (list?.activeId) activeThreadId = list.activeId;
+      renderThreadList();
+    } catch (_) {
+      // ignore
+    }
+  }
+
+  function clearChatUI() {
+    chatOutput.innerHTML = "";
+  }
+
+  function renderThreadMessages(messages) {
+    clearChatUI();
+    // Rebuild bubble list chronologically
+    (messages || []).forEach((m) => {
+      if (!m || typeof m.content !== "string") return;
+      if (m.role !== "user" && m.role !== "assistant") return;
+      appendChatBubble(m.role, m.content);
+    });
+  }
+
+  async function ensureActiveThread() {
+    // 1) list threads
+    const list = await ipcRenderer.invoke("chat:threads:list");
+    const threads = Array.isArray(list?.threads) ? list.threads : [];
+    threadsCache = threads;
+
+    // 2) pick active or create
+    if (!threads.length) {
+      const created = await ipcRenderer.invoke("chat:threads:create", { title: "Nouvelle conversation", messages: [] });
+      activeThreadId = created?.id || null;
+      await refreshThreads();
+      renderThreadList();
+      return;
+    }
+
+    activeThreadId = list?.activeId || threads[0].id;
+
+    // Ensure main knows which is active
+    try { await ipcRenderer.invoke("chat:threads:setActive", activeThreadId); } catch (_) {}
+    renderThreadList();
+  }
+
+  async function loadActiveThread() {
+    if (!activeThreadId) return;
+    const res = await ipcRenderer.invoke("chat:threads:load", activeThreadId);
+    if (!res?.ok || !res.thread) return;
+
+    const msgs = Array.isArray(res.thread.messages) ? res.thread.messages : [];
+
+    // Replace runtime memory used for LLM calls: keep system prompt + persisted messages
+    memory = [memory[0], ...msgs.filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").map((m) => ({ role: m.role, content: m.content }))];
+
+    // Render bubbles
+    renderThreadMessages(msgs);
+  }
+
+  async function bootstrapChatHistory() {
+    try {
+      await ensureActiveThread();
+      await loadActiveThread();
+      await refreshThreads();
+    } catch (_) {
+      // If persistence fails, chat still works in-memory.
+    }
+  }
+
+  function ensureChatList() {
+    let list = chatOutput.querySelector(".chatList");
+    if (!list) {
+      chatOutput.innerHTML = "";
+      list = document.createElement("div");
+      list.className = "chatList";
+      list.style.display = "flex";
+      list.style.flexDirection = "column";
+      list.style.gap = "10px";
+      list.style.padding = "2px";
+      chatOutput.appendChild(list);
+    }
+    return list;
+  }
+
+  function appendChatBubble(role, text) {
+    const list = ensureChatList();
+
+    const row = document.createElement("div");
+    row.style.display = "flex";
+    row.style.justifyContent = role === "user" ? "flex-end" : "flex-start";
+
+    const bubble = document.createElement("div");
+    bubble.className = `bubble bubble-${role}`;
+    bubble.textContent = text;
+
+    bubble.style.maxWidth = "78%";
+    bubble.style.whiteSpace = "pre-wrap";
+    bubble.style.wordBreak = "break-word";
+    bubble.style.padding = "10px 12px";
+    bubble.style.borderRadius = "14px";
+    bubble.style.border = "1px solid rgba(255,255,255,0.14)";
+    bubble.style.background = role === "user"
+      ? "rgba(120,120,255,0.18)"
+      : "rgba(255,255,255,0.06)";
+    bubble.style.color = "rgba(255,255,255,0.92)";
+
+    row.appendChild(bubble);
+    list.appendChild(row);
+
+    // Autoscroll to latest
+    row.scrollIntoView({ block: "end" });
+  }
+
   async function sendPrompt() {
     const prompt = (chatInput.value || "").trim();
     if (!prompt) return;
 
+    // Command: start a new conversation
+    if (prompt === "/new") {
+      try {
+        const created = await ipcRenderer.invoke("chat:threads:create", { title: "Nouvelle conversation", messages: [] });
+        activeThreadId = created?.id || activeThreadId;
+        clearChatUI();
+        // Reset memory to system only
+        memory = [memory[0]];
+        chatInput.value = "";
+        chatStatus.textContent = "Nouvelle conversation";
+        setTimeout(() => { chatStatus.textContent = ""; }, 900);
+        await refreshThreads();
+      } catch (_) {}
+      return;
+    }
+
     memory.push({ role: "user", content: prompt });
     chatInput.value = "";
     chatStatus.textContent = "Envoi…";
+    appendChatBubble("user", prompt);
+    // Persist user message
+    try {
+      if (activeThreadId) {
+        await ipcRenderer.invoke("chat:threads:append", { id: activeThreadId, role: "user", content: prompt });
+      }
+    } catch (_) {}
 
     // Visual state is on orb window; here we keep the UI responsive only.
     let reply = "";
@@ -303,7 +523,13 @@ function initChat() {
     memory.push({ role: "assistant", content: reply });
 
     const ms = Math.round(performance.now() - t0);
-    chatOutput.textContent = `Vous: ${prompt}\n\nIA: ${reply}\n\n` + chatOutput.textContent;
+    appendChatBubble("assistant", reply);
+    // Persist assistant message
+    try {
+      if (activeThreadId) {
+        await ipcRenderer.invoke("chat:threads:append", { id: activeThreadId, role: "assistant", content: reply });
+      }
+    } catch (_) {}
     chatStatus.textContent = `OK • ${ms}ms`;
     setTimeout(() => {
       chatStatus.textContent = "";
@@ -315,6 +541,7 @@ function initChat() {
     } catch (_) {}
   }
 
+  bootstrapChatHistory();
   chatSend.addEventListener("click", sendPrompt);
   chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -322,6 +549,33 @@ function initChat() {
       sendPrompt();
     }
   });
+
+  // Sidebar toggle
+  if (chatSidebarToggle && chatSidebar) {
+    // Apply persisted visibility
+    const hidden = !!chatUi.sidebarHidden;
+    setSidebarVisible(!hidden);
+
+    chatSidebarToggle.addEventListener("click", () => {
+      const isHidden = chatSidebar.style.display === "none";
+      setSidebarVisible(isHidden);
+    });
+  }
+
+  // Create new conversation
+  if (chatNewThread) {
+    chatNewThread.addEventListener("click", async () => {
+      try {
+        const created = await ipcRenderer.invoke("chat:threads:create", { title: "Nouvelle conversation", messages: [] });
+        if (created?.id) activeThreadId = created.id;
+        clearChatUI();
+        memory = [memory[0]];
+        chatStatus.textContent = "Nouvelle conversation";
+        setTimeout(() => { chatStatus.textContent = ""; }, 900);
+        await refreshThreads();
+      } catch (_) {}
+    });
+  }
 }
 
 // =========================
@@ -481,7 +735,9 @@ function requestFitToContent() {
 // HUD close button (settings/chat/debug)
 // =========================
 function initHudCloseButton() {
-  const btn = document.querySelector(".hudClose");
+  const btn = document.querySelector(
+    '.hudClose[aria-label="Fermer"], .hudClose[title="Fermer"], button[aria-label="Fermer"], button[title="Fermer"]'
+  );
   if (!btn) return;
 
   btn.addEventListener("click", () => {
