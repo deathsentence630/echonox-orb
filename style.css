@@ -21,6 +21,10 @@ html, body {
   /* bloom strength is driven by --bloom (0..1) */
   --bloom: 0;
 
+  /* Allow dragging the frameless window by grabbing the orb */
+  -webkit-app-region: drag;
+  cursor: move;
+
   will-change: transform, filter;
   transform: translate3d(0, 0, 0);
 
@@ -101,68 +105,202 @@ body.state-talk #avatar img {
   50%  { filter: drop-shadow(0 0 30px rgba(255, 0, 120, 1.00)); transform: translateY(-10px) scale(1.03); }
   100% { filter: drop-shadow(0 0 12px rgba(255, 0, 120, 0.35)); transform: translateY(0px) scale(1); }
 }
-
 /* =========================
-   DEBUG HUD (temporaire)
+   PANELS (settings, chat, debug)
    ========================= */
-#debug {
-  position: fixed;
-  left: 12px;
-  bottom: 12px;
-  z-index: 9999;
+.panel {
+  position: relative;
+  z-index: auto;
   font: 12px/1.25 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   color: rgba(255, 255, 255, 0.92);
-  background: rgba(0, 0, 0, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 18px;
   padding: 10px 10px 8px;
-  max-width: 360px;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-
-#debugTitle {
-  margin-bottom: 8px;
-}
-
-#debugButtons {
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 8px;
+  flex-direction: column;
+  width: auto;
+  height: auto;
+  box-sizing: border-box;
+  overflow: auto;
 }
 
-#debug button {
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.hidden {
+  display: none !important;
+}
+
+
+/* Settings panel layout */
+.panelHeader {
+  -webkit-app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+  background-color: transparent;
+  
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.75);
+}
+
+.panelHeader a,
+.panelHeader button,
+.panelHeader input,
+.panelHeader select,
+.panelHeader textarea,
+.panelHeader label,
+.panelHeader .hudClose {
+  -webkit-app-region: no-drag;
+}
+
+.panelHeader button {
   appearance: none;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
-  padding: 6px 8px;
+  width: 28px;
+  height: 28px;
   border-radius: 10px;
   cursor: pointer;
 }
 
-#debug button:hover {
-  background: rgba(255, 255, 255, 0.12);
+.panelHeader button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+/* Top nav in panel header (Settings / Chat / Debug) */
+.panelHeader nav {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
 }
 
-#debugHint {
-  opacity: 0.8;
+.panelHeader a.navItem {
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 1.0);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 
+.panelHeader a.navItem:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
+}
 
-/* =========================
-   LLM CHAT (temporaire)
-   ========================= */
-#chat {
-  margin-top: 8px;
+.panelHeader a.navActive {
+  background: rgba(120, 120, 255, 0.18);
+  border-color: rgba(120, 120, 255, 0.55);
+}
+
+.panelContent {
   display: grid;
+  gap: 12px;
+  overflow: visible;
+  padding-right: 0;
+}
+
+/* If the window becomes smaller than the content, allow scrolling */
+@media (max-height: 520px) {
+  .panelContent {
+    overflow: auto;
+    padding-right: 4px;
+  }
+}
+
+.panelContent section {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.panelContent h3 {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+.panelContent label {
+  display: grid;
+  gap: 6px;
+}
+
+.panelContent label.inline {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-#chatInput {
+.panelContent input[type="range"],
+.panelContent input[type="text"],
+.panelContent select {
   width: 100%;
-  resize: none;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  border-radius: 10px;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.panelContent input[type="color"] {
+  width: 100%;
+  height: 34px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 4px;
+}
+
+.panelContent input:focus,
+.panelContent select:focus {
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.panelContent button#resetMemory {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 8px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.panelContent button#resetMemory:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+
+
+/* Chat / textareas */
+textarea {
+  width: 100%;
+  resize: vertical;
   box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
@@ -172,43 +310,257 @@ body.state-talk #avatar img {
   outline: none;
 }
 
-#chatInput:focus {
+textarea:focus {
   border-color: rgba(255, 255, 255, 0.35);
 }
 
-#chatRow {
+/* Debug helpers */
+.muted {
+  opacity: 0.75;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 6px 10px;
+}
+
+.kv .k {
+  opacity: 0.75;
+}
+
+.kv .v {
+  word-break: break-word;
+}
+
+/* Control pages must not paint an opaque background (so macOS vibrancy shows through) */
+body[data-page="settings"],
+body[data-page="chat"],
+body[data-page="debug"] {
+  margin: 0;
+  backdrop-filter: blur(50px) opacity(100%);
+  -webkit-backdrop-filter: blur(50px) opacity(100%);
+  /* Allow the page to size intrinsically so main.js can fit the window */
+}
+
+
+/* Slightly stronger glass for control HUD pages (panel-only windows) */
+body[data-page="settings"] .panel,
+body[data-page="chat"] .panel,
+body[data-page="debug"] .panel {
+  background: rgba(10, 10, 10, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+}
+
+/* Clickable UI must not be draggable */
+button, input, select, textarea, a, .hudClose {
+  -webkit-app-region: no-drag;
+}
+
+/* =========================
+   SETTINGS TABS (settings.html)
+   ========================= */
+/* Hide tab radios (they live inside .panelContent) */
+#settingsPanel .panelContent > input[type="radio"][name="settingsTab"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#settingsPanel .settingsTabs {
   display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 6px 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#settingsPanel .settingsTab {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-
-#chatSend {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
-  padding: 6px 10px;
-  border-radius: 10px;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 
-#chatSend:hover {
-  background: rgba(255, 255, 255, 0.14);
+#settingsPanel .settingsTab:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
-#chatStatus {
-  opacity: 0.8;
-  font-size: 12px;
+/* Active tab styling (relies on the radio inputs being siblings of .settingsTabs) */
+#settingsPanel #tab-appearance:checked ~ .settingsTabs label[for="tab-appearance"],
+#settingsPanel #tab-intelligence:checked ~ .settingsTabs label[for="tab-intelligence"],
+#settingsPanel #tab-memory:checked ~ .settingsTabs label[for="tab-memory"],
+#settingsPanel #tab-advanced:checked ~ .settingsTabs label[for="tab-advanced"] {
+  background: rgba(120, 120, 255, 0.18);
+  border-color: rgba(120, 120, 255, 0.55);
 }
 
-#chatOutput {
-  max-height: 140px;
-  overflow: auto;
-  white-space: pre-wrap;
-  box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(0, 0, 0, 0.22);
+#settingsPanel .settingsPanels {
+  width: 100%;
+}
+
+#settingsPanel .tabPanel {
+  display: none;
+  animation: tabFade 140ms ease;
+}
+
+@keyframes tabFade {
+  from { opacity: 0; transform: translateY(2px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+#settingsPanel #tab-appearance:checked ~ .settingsPanels #panel-appearance,
+#settingsPanel #tab-intelligence:checked ~ .settingsPanels #panel-intelligence,
+#settingsPanel #tab-memory:checked ~ .settingsPanels #panel-memory,
+#settingsPanel #tab-advanced:checked ~ .settingsPanels #panel-advanced {
+  display: block;
+}
+
+#settingsPanel .tabPanel h3 {
+  margin-top: 0;
+}
+
+/* =========================
+   CHAT TABS (chat.html)
+   ========================= */
+#chatPanel .panelContent > input[type="radio"][name="chatTab"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#chatPanel .chatTabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 6px 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#chatPanel .chatTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.92);
-  border-radius: 10px;
-  padding: 8px 10px;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
+
+#chatPanel .chatTab:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+#chatPanel #chat-tab-compose:checked ~ .chatTabs label[for="chat-tab-compose"],
+#chatPanel #chat-tab-history:checked ~ .chatTabs label[for="chat-tab-history"] {
+  background: rgba(120, 120, 255, 0.18);
+  border-color: rgba(120, 120, 255, 0.55);
+}
+
+#chatPanel .chatPanels {
+  width: 100%;
+}
+
+#chatPanel .tabPanel {
+  display: none;
+  animation: tabFade 140ms ease;
+}
+
+#chatPanel #chat-tab-compose:checked ~ .chatPanels #chat-panel-compose,
+#chatPanel #chat-tab-history:checked ~ .chatPanels #chat-panel-history {
+  display: block;
+}
+
+#chatPanel #chatOutput {
+  /* More room for history in the dedicated tab */
+  max-height: 420px;
+}
+
+/* =========================
+   DEBUG TABS (debug.html)
+   ========================= */
+#debugPanel .panelContent > input[type="radio"][name="debugTab"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#debugPanel .debugTabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 6px 0 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+#debugPanel .debugTab {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  white-space: nowrap;
+  transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+#debugPanel .debugTab:hover {
+  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+#debugPanel #debug-tab-states:checked ~ .debugTabs label[for="debug-tab-states"],
+#debugPanel #debug-tab-runtime:checked ~ .debugTabs label[for="debug-tab-runtime"],
+#debugPanel #debug-tab-metrics:checked ~ .debugTabs label[for="debug-tab-metrics"] {
+  background: rgba(120, 120, 255, 0.18);
+  border-color: rgba(120, 120, 255, 0.55);
+}
+
+#debugPanel .debugPanels {
+  width: 100%;
+}
+
+#debugPanel .tabPanel {
+  display: none;
+  animation: tabFade 140ms ease;
+}
+
+#debugPanel #debug-tab-states:checked ~ .debugPanels #debug-panel-states,
+#debugPanel #debug-tab-runtime:checked ~ .debugPanels #debug-panel-runtime,
+#debugPanel #debug-tab-metrics:checked ~ .debugPanels #debug-panel-metrics {
+  display: block;
+}
+
+/* Fix: Apparence tab needs extra breathing space to avoid residual scroll */

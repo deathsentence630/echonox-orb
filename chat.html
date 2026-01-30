@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+  <title>ECHONOX — Chat</title>
+</head>
+<body data-page="chat">
+  <section class="panel" id="chatPanel" style="max-height: 760px; height: min(85vh, 760px); overflow: auto;">
+        <div class="panelHeader" style="position: sticky; top: 0; z-index: 10; background: rgba(11, 11, 16, 0.40); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);">
+          <button type="button" id="chatSidebarToggle" class="hudClose" aria-label="Conversations" title="Conversations">☰</button>
+          <nav class="controlNav">
+            <a class="navItem" href="settings.html">Settings</a>
+            <a class="navItem navActive" href="chat.html">Chat</a>
+            <a class="navItem" href="debug.html">Debug</a>
+          </nav>
+          <button
+            type="button"
+            class="hudClose"
+            aria-label="Fermer"
+            title="Fermer"
+          >✕</button>
+        </div>
+
+        <div class="panelContent" style="padding-top: 10px;">
+          <div class="chatLayout" style="display:flex; gap:12px; align-items:stretch; min-height:0;">
+            <!-- Left: conversations list -->
+            <aside id="chatSidebar" style="width:240px; max-width:240px; min-width:200px; border:1px solid rgba(255,255,255,0.10); border-radius:12px; background: rgba(0,0,0,0.12); padding:10px; overflow:auto; height: calc(min(85vh, 760px) - 76px);">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;">
+                <strong style="font-size:12px; opacity:0.9;">Conversations</strong>
+                <button type="button" id="chatNewThread" style="appearance:none; border:1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.92); padding:6px 10px; border-radius:10px; cursor:pointer;">+ New</button>
+              </div>
+              <div id="chatThreadList" style="display:flex; flex-direction:column; gap:8px;"></div>
+            </aside>
+
+            <!-- Right: chat -->
+            <div class="chatMain" style="flex:1; min-width:0;">
+              <section style="display:flex; flex-direction:column; gap:12px; height:100%; min-height:0;">
+                <h3>Conversation</h3>
+
+                <div id="chatOutput" style="flex:1; min-height:160px; overflow:auto; padding:10px; border:1px solid rgba(255,255,255,0.10); border-radius:12px; background: rgba(0,0,0,0.12);"></div>
+
+                <div class="chatComposer" style="position:sticky; bottom:0; z-index:5; padding-top:10px; background: rgba(11, 11, 16, 0.35); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-top: 1px solid rgba(255,255,255,0.10);">
+                  <label>
+                    Message
+                    <textarea
+                      id="chatInput"
+                      rows="3"
+                      placeholder="Écris ici (Entrée = envoyer, Shift+Entrée = nouvelle ligne)"
+                    ></textarea>
+                  </label>
+
+                  <div class="inline" style="justify-content: space-between;">
+                    <button type="button" id="chatSend">Envoyer</button>
+                    <span id="chatStatus"></span>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

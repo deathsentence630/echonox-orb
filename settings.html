@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="style.css" />
+  <title>ECHONOX — Settings</title>
+</head>
+<body data-page="settings">
+  <section class="panel" id="settingsPanel">
+    <div class="panelHeader">
+      <nav class="controlNav">
+        <a class="navItem navActive" href="settings.html">Settings</a>
+        <a class="navItem" href="chat.html">Chat</a>
+        <a class="navItem" href="debug.html">Debug</a>
+      </nav>
+      <button
+        type="button"
+        class="hudClose"
+        aria-label="Fermer"
+        title="Fermer"
+      >✕</button>
+    </div>
+
+    <div class="panelContent">
+          <!-- Tabs (keep main nav to Chat/Debug above) -->
+      <input type="radio" name="settingsTab" id="tab-appearance" />
+      <input type="radio" name="settingsTab" id="tab-intelligence" />
+      <input type="radio" name="settingsTab" id="tab-memory" />
+      <input type="radio" name="settingsTab" id="tab-advanced" />
+
+      <div class="settingsTabs" role="tablist" aria-label="Sections des réglages">
+        <label class="settingsTab" for="tab-appearance" role="tab" aria-controls="panel-appearance">Apparence</label>
+        <label class="settingsTab" for="tab-intelligence" role="tab" aria-controls="panel-intelligence">Intelligence</label>
+        <label class="settingsTab" for="tab-memory" role="tab" aria-controls="panel-memory">Mémoire</label>
+        <label class="settingsTab" for="tab-advanced" role="tab" aria-controls="panel-advanced">Avancé</label>
+      </div>
+
+      <div class="settingsPanels">
+        <section class="tabPanel" id="panel-appearance" role="tabpanel" aria-labelledby="tab-appearance">
+          <h3>Apparence</h3>
+
+          <label>
+            Taille de l’orbe
+            <input type="range" id="setting-orb-size" min="120" max="420" step="10" />
+          </label>
+
+          <label>
+            Bloom
+            <input type="range" id="setting-bloom" min="0" max="1" step="0.05" />
+          </label>
+
+          <label class="inline">
+            <input type="checkbox" id="setting-attraction-enabled" />
+            Attraction souris
+          </label>
+
+          <label>
+            Intensité attraction
+            <input type="range" id="setting-attraction-strength" min="0" max="1" step="0.05" />
+          </label>
+
+          <label>
+            Animations
+            <select id="setting-animations">
+              <option value="full">Complètes</option>
+              <option value="reduced">Réduites</option>
+              <option value="off">Désactivées</option>
+            </select>
+          </label>
+
+          <label>
+             Couleur
+            <input type="color" id="setting-color" />
+          </label>
+
+          <label class="inline">
+            <input type="checkbox" id="setting-always-on-top" />
+            Always on top (orbe)
+          </label>
+        </section>
+
+        <section class="tabPanel" id="panel-intelligence" role="tabpanel" aria-labelledby="tab-intelligence">
+          <h3>Intelligence</h3>
+
+          <label>
+            Modèle LLM
+            <input
+              type="text"
+              id="setting-model"
+              placeholder="ex: qwen2.5:7b"
+            />
+          </label>
+
+          <label>
+            Mode IA
+            <select id="setting-ai-mode">
+              <option value="assistant">Assistant discret</option>
+              <option value="presence">Présence sur demande</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="tabPanel" id="panel-memory" role="tabpanel" aria-labelledby="tab-memory">
+          <h3>Mémoire</h3>
+
+          <label class="inline">
+            <input type="radio" name="memoryMode" value="ephemeral" />
+            Mémoire éphémère
+          </label>
+
+          <label class="inline">
+            <input type="radio" name="memoryMode" value="persistent" />
+            Mémoire long terme
+          </label>
+
+          <button type="button" id="resetMemory">Réinitialiser la mémoire</button>
+        </section>
+
+        <section class="tabPanel" id="panel-advanced" role="tabpanel" aria-labelledby="tab-advanced">
+          <h3>Avancé</h3>
+            <label>
+            Niveau de debug
+            <select id="setting-debug-level">
+              <option value="simple">Simple</option>
+              <option value="advanced">Avancé</option>
+              <option value="expert">Expert</option>
+            </select>
+          </label>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
