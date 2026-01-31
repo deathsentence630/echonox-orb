@@ -12,7 +12,26 @@ let settingsWindow = null;
 let chatWindow = null;
 let debugWindow = null;
 
+
 const isMac = process.platform === 'darwin';
+
+// --- CLI arg helpers for Wayland-friendly window control ---
+function parseCliArgs(argv) {
+  const args = Array.isArray(argv) ? argv.slice() : [];
+  const out = { open: null, toggle: null, closeAll: false };
+
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--open' && args[i + 1]) out.open = String(args[++i]).toLowerCase();
+    else if (a === '--toggle' && args[i + 1]) out.toggle = String(args[++i]).toLowerCase();
+    else if (a === '--close-all') out.closeAll = true;
+  }
+  return out;
+}
+
+function isControlKind(k) {
+  return k === 'settings' || k === 'chat' || k === 'debug';
+}
 
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
@@ -324,34 +343,81 @@ function openControl(kind) {
   return createControlWindow(kind);
 }
 
+// --- CLI action dispatcher ---
+function applyCliAction(action) {
+  if (!action) return;
+
+  if (action.closeAll) {
+    try { if (settingsWindow && !settingsWindow.isDestroyed()) settingsWindow.close(); } catch (_) {}
+    try { if (chatWindow && !chatWindow.isDestroyed()) chatWindow.close(); } catch (_) {}
+    try { if (debugWindow && !debugWindow.isDestroyed()) debugWindow.close(); } catch (_) {}
+    return;
+  }
+
+  if (action.open && isControlKind(action.open)) {
+    openControl(action.open);
+    return;
+  }
+
+  if (action.toggle && isControlKind(action.toggle)) {
+    const map = { settings: settingsWindow, chat: chatWindow, debug: debugWindow };
+    const w = map[action.toggle];
+    if (w && !w.isDestroyed() && w.isVisible()) w.close();
+    else openControl(action.toggle);
+  }
+}
+
+
 // -------------------------
 // App lifecycle
 // -------------------------
-app.whenReady().then(() => {
-  createOrbWindow();
+const gotLock = app.requestSingleInstanceLock();
 
-  // Global shortcuts (open on demand)
-  // - Settings: Cmd/Ctrl + ,
-  // - Chat: Cmd/Ctrl + Shift + C
-  // - Debug: Cmd/Ctrl + Shift + D
-  globalShortcut.register('CommandOrControl+,', () => openControl('settings'));
-  globalShortcut.register('CommandOrControl+Shift+C', () => openControl('chat'));
-  globalShortcut.register('CommandOrControl+Shift+D', () => openControl('debug'));
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const action = parseCliArgs(argv);
 
-  // Keep orb visible if displays/work areas change.
-  const clampOrb = () => {
-    if (!orbWindow || orbWindow.isDestroyed()) return;
-    const b = orbWindow.getBounds();
-    const next = clampBoundsToWorkArea(b);
-    if (next.x !== b.x || next.y !== b.y || next.width !== b.width || next.height !== b.height) {
-      orbWindow.setBounds(next, false);
-    }
-  };
+    try {
+      if (orbWindow && !orbWindow.isDestroyed()) {
+        orbWindow.show();
+        orbWindow.focus();
+      }
+    } catch (_) {}
 
-  screen.on('display-metrics-changed', clampOrb);
-  screen.on('display-added', clampOrb);
-  screen.on('display-removed', clampOrb);
-});
+    applyCliAction(action);
+  });
+
+  app.whenReady().then(() => {
+    createOrbWindow();
+
+    // Apply CLI actions on first launch
+    applyCliAction(parseCliArgs(process.argv));
+
+    // Global shortcuts (open on demand)
+    // - Settings: Cmd/Ctrl + ,
+    // - Chat: Cmd/Ctrl + Shift + C
+    // - Debug: Cmd/Ctrl + Shift + D
+    globalShortcut.register('CommandOrControl+,', () => openControl('settings'));
+    globalShortcut.register('CommandOrControl+Shift+C', () => openControl('chat'));
+    globalShortcut.register('CommandOrControl+Shift+D', () => openControl('debug'));
+
+    // Keep orb visible if displays/work areas change.
+    const clampOrb = () => {
+      if (!orbWindow || orbWindow.isDestroyed()) return;
+      const b = orbWindow.getBounds();
+      const next = clampBoundsToWorkArea(b);
+      if (next.x !== b.x || next.y !== b.y || next.width !== b.width || next.height !== b.height) {
+        orbWindow.setBounds(next, false);
+      }
+    };
+
+    screen.on('display-metrics-changed', clampOrb);
+    screen.on('display-added', clampOrb);
+    screen.on('display-removed', clampOrb);
+  });
+}
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
