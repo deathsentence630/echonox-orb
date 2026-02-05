@@ -404,6 +404,7 @@ button, input, select, textarea, a, .hudClose {
 #settingsPanel #tab-appearance:checked ~ .settingsTabs label[for="tab-appearance"],
 #settingsPanel #tab-intelligence:checked ~ .settingsTabs label[for="tab-intelligence"],
 #settingsPanel #tab-memory:checked ~ .settingsTabs label[for="tab-memory"],
+#settingsPanel #tab-rag:checked ~ .settingsTabs label[for="tab-rag"],
 #settingsPanel #tab-advanced:checked ~ .settingsTabs label[for="tab-advanced"] {
   background: rgba(120, 120, 255, 0.18);
   border-color: rgba(120, 120, 255, 0.55);
@@ -426,6 +427,7 @@ button, input, select, textarea, a, .hudClose {
 #settingsPanel #tab-appearance:checked ~ .settingsPanels #panel-appearance,
 #settingsPanel #tab-intelligence:checked ~ .settingsPanels #panel-intelligence,
 #settingsPanel #tab-memory:checked ~ .settingsPanels #panel-memory,
+#settingsPanel #tab-rag:checked ~ .settingsPanels #panel-rag,
 #settingsPanel #tab-advanced:checked ~ .settingsPanels #panel-advanced {
   display: block;
 }

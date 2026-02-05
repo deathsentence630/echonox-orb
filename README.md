@@ -18,7 +18,7 @@ calme, non intrusive, respectueuse de la vie privée, et pensée pour évoluer.
   Intégration via Ollama (par défaut), sans dépendance cloud.
 
 - 👁️ **Présence visuelle**  
-  Une orb animée, réactive à la souris et à l’état interne (idle / listen / think / talk).
+  Une orb animée, réactive à la souris et à l’état interne (idle / listen / think / talk) avec la possibilité de désactiver les effets.
 
 - 🧱 **Architecture claire**  
   Séparation stricte entre :
@@ -33,7 +33,14 @@ calme, non intrusive, respectueuse de la vie privée, et pensée pour évoluer.
 - Orb centrale avec animation et bloom progressif
 - Réaction subtile à la proximité du curseur
 - États visuels pilotés par le comportement
-- Interface de chat intégrée (actuellement via le panneau debug)
+- Interface de chat intégrée (actuellement via le panneau chat)
+
+## 🗺️ Roadmap
+
+- Intégration du STT afin d'écrire avec la voix. 🗣️
+- Intégration du TTS afin d'avoir la réponse en vocal. 🗣️
+- Ajout d'automatisation via agent MCP.
+- Ajustement de la gestion de la Ram sur les config modeste.
 
 ---
 
@@ -50,7 +57,8 @@ Quel que soit votre système :
 
 - **Node.js** (version LTS recommandée ≥ 18)
 - **npm** (fourni avec Node.js)
-- Un GPU est optionnel mais recommandé pour de meilleures performances LLM
+- **Electon** Nécessaire pour l'interface
+- Un **GPU** est optionnel mais recommandé pour de meilleures performances LLM
 
 Vérification rapide :
 
@@ -100,7 +108,13 @@ sudo dnf install nodejs npm
 
 ---
 
-## 3️⃣ Installation d’Ollama (LLM local)
+## 3️⃣ Installation d'Electron
+
+```bash
+npm install electron
+```
+
+## 4️⃣ Installation d’Ollama (LLM local)
 
 ECHONOX utilise **Ollama** pour exécuter les modèles de langage localement.
 

@@ -4,6 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// RAG feature (Phase 3)
+const { registerRagIpc } = require('./features/rag/rag.ipc');
+
 // -------------------------
 // Window references (single instance each)
 // -------------------------
@@ -426,6 +429,16 @@ app.on('will-quit', () => {
 app.on('activate', () => {
   if (!orbWindow || orbWindow.isDestroyed()) createOrbWindow();
 });
+
+// -------------------------
+// IPC: RAG (Retrieval-Augmented Generation)
+// -------------------------
+try {
+  registerRagIpc(ipcMain, { app, safeStorage });
+  console.log('[rag] IPC registered');
+} catch (e) {
+  console.warn('[rag] IPC not registered:', e?.message || String(e));
+}
 
 // -------------------------
 // IPC: Window controls

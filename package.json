@@ -10,6 +10,9 @@
   "license": "ISC",
   "description": "",
   "devDependencies": {
-    "electron": "^40.0.0"
+    "electron": "^40.1.0"
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
   }
 }

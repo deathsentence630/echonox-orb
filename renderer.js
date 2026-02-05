@@ -273,6 +273,10 @@ function initChat() {
   const chatThreadList = $("chatThreadList");
   const chatNewThread = $("chatNewThread");
 
+  // RAG UI (optional; only if chat.html provides these elements)
+  const ragCorpusSelect = $("ragCorpusSelect"); // <select multiple>
+  const ragInfo = $("ragInfo"); // small status text
+
   const CHAT_UI_KEY = "echonox.chatUi.v1";
   function loadChatUi() {
     try {
@@ -306,6 +310,80 @@ function initChat() {
   let activeThreadId = null;
 
   let threadsCache = [];
+
+  // -------------------------
+  // RAG state (per thread)
+  // -------------------------
+  let ragCorporaCache = [];
+  let ragSelectedCorpusIds = [];
+
+  function setRagInfo(text) {
+    if (ragInfo) ragInfo.textContent = text || "";
+  }
+
+  function getSelectedCorpusIdsFromUi() {
+    if (!ragCorpusSelect) return ragSelectedCorpusIds.slice();
+    const ids = Array.from(ragCorpusSelect.selectedOptions || []).map((o) => o.value).filter(Boolean);
+    return ids;
+  }
+
+  function renderRagCorporaSelect() {
+    if (!ragCorpusSelect) return;
+    ragCorpusSelect.innerHTML = "";
+
+    const corpora = Array.isArray(ragCorporaCache) ? ragCorporaCache : [];
+    corpora.forEach((c) => {
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name || "Corpus";
+      if (ragSelectedCorpusIds.includes(c.id)) opt.selected = true;
+      ragCorpusSelect.appendChild(opt);
+    });
+  }
+
+  async function refreshRagStatusAndSelection() {
+    // If IPC isn't available yet, we keep chat functional.
+    try {
+      const status = await ipcRenderer.invoke("rag:status");
+      ragCorporaCache = Array.isArray(status?.corpora) ? status.corpora : [];
+
+      if (activeThreadId) {
+        const sel = await ipcRenderer.invoke("rag:convo:get", activeThreadId);
+        ragSelectedCorpusIds = Array.isArray(sel?.corpusIds) ? sel.corpusIds : [];
+      } else {
+        ragSelectedCorpusIds = [];
+      }
+
+      renderRagCorporaSelect();
+
+      if (ragSelectedCorpusIds.length) {
+        setRagInfo(`RAG actif • ${ragSelectedCorpusIds.length} corpus`);
+      } else {
+        setRagInfo("RAG inactif");
+      }
+    } catch (e) {
+      // RAG not installed / safeStorage unavailable / IPC not registered
+      ragCorporaCache = [];
+      ragSelectedCorpusIds = [];
+      renderRagCorporaSelect();
+      setRagInfo("RAG indisponible");
+    }
+  }
+
+  async function persistRagSelectionFromUi() {
+    ragSelectedCorpusIds = getSelectedCorpusIdsFromUi();
+    if (!activeThreadId) return;
+    try {
+      await ipcRenderer.invoke("rag:convo:set", { threadId: activeThreadId, corpusIds: ragSelectedCorpusIds });
+      if (ragSelectedCorpusIds.length) {
+        setRagInfo(`RAG actif • ${ragSelectedCorpusIds.length} corpus`);
+      } else {
+        setRagInfo("RAG inactif");
+      }
+    } catch (_) {
+      // ignore
+    }
+  }
 
   function setSidebarVisible(visible) {
     if (!chatSidebar) return;
@@ -355,6 +433,7 @@ function initChat() {
         try { await ipcRenderer.invoke("chat:threads:setActive", activeThreadId); } catch (_) {}
         await loadActiveThread();
         await refreshThreads();
+        await refreshRagStatusAndSelection();
       });
 
       chatThreadList.appendChild(item);
@@ -399,6 +478,7 @@ function initChat() {
       activeThreadId = created?.id || null;
       await refreshThreads();
       renderThreadList();
+      await refreshRagStatusAndSelection();
       return;
     }
 
@@ -407,6 +487,7 @@ function initChat() {
     // Ensure main knows which is active
     try { await ipcRenderer.invoke("chat:threads:setActive", activeThreadId); } catch (_) {}
     renderThreadList();
+    await refreshRagStatusAndSelection();
   }
 
   async function loadActiveThread() {
@@ -417,7 +498,9 @@ function initChat() {
     const msgs = Array.isArray(res.thread.messages) ? res.thread.messages : [];
 
     // Replace runtime memory used for LLM calls: keep system prompt + persisted messages
-    memory = [memory[0], ...msgs.filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string").map((m) => ({ role: m.role, content: m.content }))];
+    memory = [memory[0], ...msgs
+      .filter((m) => m && (m.role === "user" || m.role === "assistant") && typeof m.content === "string")
+      .map((m) => ({ role: m.role, content: m.content }))];
 
     // Render bubbles
     renderThreadMessages(msgs);
@@ -428,6 +511,7 @@ function initChat() {
       await ensureActiveThread();
       await loadActiveThread();
       await refreshThreads();
+      await refreshRagStatusAndSelection();
     } catch (_) {
       // If persistence fails, chat still works in-memory.
     }
@@ -493,6 +577,7 @@ function initChat() {
         chatStatus.textContent = "Nouvelle conversation";
         setTimeout(() => { chatStatus.textContent = ""; }, 900);
         await refreshThreads();
+        await refreshRagStatusAndSelection();
       } catch (_) {}
       return;
     }
@@ -512,8 +597,49 @@ function initChat() {
     let reply = "";
     const t0 = performance.now();
     try {
+      // --- RAG (optional) ---
+      let ragContext = "";
+      let ragSources = [];
+
+      const corpusIds = getSelectedCorpusIdsFromUi();
+
+      if (corpusIds.length && activeThreadId) {
+        try {
+          const rag = await ipcRenderer.invoke("rag:query", { threadId: activeThreadId, corpusIds, queryText: prompt });
+          ragContext = String(rag?.context || "");
+          ragSources = Array.isArray(rag?.sources) ? rag.sources : [];
+        } catch (_) {
+          ragContext = "";
+          ragSources = [];
+        }
+      }
+
+      const messagesForLlm = memory.slice();
+      if (ragContext) {
+        const ragSystem = {
+          role: "system",
+          content:
+            "Connaissances injectées via RAG (documents locaux / notes privées).\n" +
+            "Règles: n'utilise ces infos que si pertinent. Quand tu t'appuies sur une info RAG, cite la source avec [#n].\n" +
+            "---\n" +
+            ragContext,
+        };
+        // Insert right after the base system prompt (memory[0])
+        messagesForLlm.splice(1, 0, ragSystem);
+      }
+
       // If settings.model is set, we send it as a hint (main may ignore for now)
-      reply = await ipcRenderer.invoke("llm:chat", { messages: memory, model: settings.model || undefined });
+      reply = await ipcRenderer.invoke("llm:chat", { messages: messagesForLlm, model: settings.model || undefined });
+
+      if (ragSources.length) {
+        const lines = ragSources.map((s) => {
+          const title = s?.title || "Source";
+          const p = s?.path ? ` (${s.path})` : "";
+          const n = s?.n != null ? `[#${s.n}] ` : "";
+          return `${n}${title}${p}`;
+        });
+        reply = `${reply}\n\n——\nSources (RAG):\n${lines.join("\n")}`;
+      }
     } catch (e) {
       reply = `⚠️ LLM indisponible (local).\n${e?.message ? `Détail: ${e.message}` : ""}`.trim();
     }
@@ -543,6 +669,14 @@ function initChat() {
 
   bootstrapChatHistory();
   chatSend.addEventListener("click", sendPrompt);
+
+  // RAG corpus selection (explicit)
+  if (ragCorpusSelect) {
+    ragCorpusSelect.addEventListener("change", () => {
+      persistRagSelectionFromUi();
+    });
+  }
+
   chatInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -573,6 +707,7 @@ function initChat() {
         chatStatus.textContent = "Nouvelle conversation";
         setTimeout(() => { chatStatus.textContent = ""; }, 900);
         await refreshThreads();
+        await refreshRagStatusAndSelection();
       } catch (_) {}
     });
   }
