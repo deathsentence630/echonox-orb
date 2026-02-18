@@ -68,27 +68,38 @@ function registerRagIpc(ipcMain, { app, safeStorage }) {
   });
 
   // --- Pickers (explicit user action) ---
-  ipcMain.handle('rag:pick:files', async () => {
-    const win = BrowserWindow.getFocusedWindow();
-    const res = await dialog.showOpenDialog(win || undefined, {
-      title: 'Ajouter des fichiers (RAG)',
-      properties: ['openFile', 'multiSelections'],
-      filters: [
-        { name: 'Documents', extensions: ['pdf', 'md', 'markdown', 'txt'] },
-        { name: 'Tous les fichiers', extensions: ['*'] },
-      ],
-    });
-    return { ok: true, paths: res.canceled ? [] : (res.filePaths || []) };
+  // Use the window that initiated the IPC call (more reliable than getFocusedWindow on Windows/Linux)
+  ipcMain.handle('rag:pick:files', async (event) => {
+    try {
+      console.log('[rag] pick files');
+      const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow();
+      const res = await dialog.showOpenDialog(win || undefined, {
+        title: 'Ajouter des fichiers (RAG)',
+        properties: ['openFile', 'multiSelections'],
+        filters: [
+          { name: 'Documents', extensions: ['pdf', 'md', 'markdown', 'txt'] },
+          { name: 'Tous les fichiers', extensions: ['*'] },
+        ],
+      });
+      return { ok: true, paths: res.canceled ? [] : (res.filePaths || []) };
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e), paths: [] };
+    }
   });
 
-  ipcMain.handle('rag:pick:folder', async () => {
-    const win = BrowserWindow.getFocusedWindow();
-    const res = await dialog.showOpenDialog(win || undefined, {
-      title: 'Ajouter un dossier (RAG)',
-      properties: ['openDirectory'],
-    });
-    const p = (!res.canceled && res.filePaths && res.filePaths[0]) ? res.filePaths[0] : '';
-    return { ok: true, path: p };
+  ipcMain.handle('rag:pick:folder', async (event) => {
+    try {
+      console.log('[rag] pick folder');
+      const win = BrowserWindow.fromWebContents(event.sender) || BrowserWindow.getFocusedWindow();
+      const res = await dialog.showOpenDialog(win || undefined, {
+        title: 'Ajouter un dossier (RAG)',
+        properties: ['openDirectory'],
+      });
+      const p = (!res.canceled && res.filePaths && res.filePaths[0]) ? res.filePaths[0] : '';
+      return { ok: true, path: p };
+    } catch (e) {
+      return { ok: false, error: e?.message || String(e), path: '' };
+    }
   });
 
   // --- Sources CRUD ---
