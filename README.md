@@ -18,13 +18,14 @@ calme, non intrusive, respectueuse de la vie privée, et pensée pour évoluer.
   Intégration via Ollama (par défaut), sans dépendance cloud.
 
 - 👁️ **Présence visuelle**  
-  Une orb animée, réactive à la souris et à l’état interne (idle / listen / think / talk).
+  Une orb animée, réactive à la souris et à l’état interne (idle / listen / think / talk) avec la possibilité de désactiver les effets.
 
 - 🧱 **Architecture claire**  
   Séparation stricte entre :
   - `main.js` → logique système / LLM
   - `renderer.js` → UI / interactions
   - `index.html` / `style.css` → présentation
+  - `feature/rag` → RAG + indexation
 
 ---
 
@@ -33,7 +34,11 @@ calme, non intrusive, respectueuse de la vie privée, et pensée pour évoluer.
 - Orb centrale avec animation et bloom progressif
 - Réaction subtile à la proximité du curseur
 - États visuels pilotés par le comportement
-- Interface de chat intégrée (actuellement via le panneau debug)
+- Interface de chat intégrée (actuellement via le panneau chat)
+
+## Roadmap
+
+Lire la section [Roadmap](https://github.com/deathsentence630/echonox-orb/blob/dev/ROADMAP.md)
 
 ---
 
@@ -50,7 +55,8 @@ Quel que soit votre système :
 
 - **Node.js** (version LTS recommandée ≥ 18)
 - **npm** (fourni avec Node.js)
-- Un GPU est optionnel mais recommandé pour de meilleures performances LLM
+- **Electron** (nécessaire pour l'interface)
+- Un **GPU** est optionnel mais recommandé pour de meilleures performances LLM
 
 Vérification rapide :
 
@@ -100,7 +106,19 @@ sudo dnf install nodejs npm
 
 ---
 
-## 3️⃣ Installation d’Ollama (LLM local)
+## 3️⃣ Installation des dépendances (Electron + libs)
+
+Dans ce projet, **Electron** est géré via npm (pas besoin d’une installation globale).
+
+```bash
+npm install
+```
+
+> ✅ Cette commande installe aussi les dépendances nécessaires, dont **pdf-parse** (utilisé pour l’ingestion de PDF côté RAG).
+
+---
+
+## 4️⃣ Installation d’Ollama (LLM local)
 
 ECHONOX utilise **Ollama** pour exécuter les modèles de langage localement.
 
@@ -115,8 +133,16 @@ ou via l’installeur officiel :
 
 ### Windows
 
+La méthode la plus simple (recommandée) via **WinGet** :
+
+```powershell
+winget install --id=Ollama.Ollama -e
+```
+
+Alternative :
 - Télécharger l’installeur officiel : <https://ollama.com>
-- Lancer Ollama une fois installé (service local)
+
+Une fois installé, Ollama s’exécute en **service local**.
 
 ### Linux
 
@@ -126,22 +152,35 @@ curl -fsSL https://ollama.com/install.sh | sh
 
 ---
 
-## 4️⃣ Installation d’un modèle LLM
+## 5️⃣ Téléchargement des modèles (chat + embeddings RAG)
 
-Exemple recommandé (bon équilibre qualité / français) :
+ECHONOX utilise généralement **deux modèles** :
+- un modèle **chat** (réponses)
+- un modèle **embeddings** pour le RAG (indexation / recherche sémantique)
+
+### Modèle chat (exemple recommandé)
+
+Bon équilibre qualité / français :
 
 ```bash
 ollama pull qwen2.5:7b
 ```
 
 Autres modèles possibles :
-
 - `llama3.2:3b` → très rapide, plus léger
 - tout modèle compatible Ollama
 
+### Modèle embeddings (RAG)
+
+Pour la partie **embeddings** (RAG), télécharger aussi :
+
+```bash
+ollama pull nomic-embed-text
+```
+
 ---
 
-## 5️⃣ Lancer Ollama
+## 6️⃣ Lancer Ollama
 
 Avant de démarrer ECHONOX, le service Ollama doit être actif.
 
@@ -153,7 +192,7 @@ ollama serve
 
 ---
 
-## 6️⃣ Installation d’ECHONOX
+## 7️⃣ Installation d’ECHONOX
 
 Cloner le dépôt :
 
@@ -168,9 +207,12 @@ Installer les dépendances :
 npm install
 ```
 
+✅ Dépendances notables :
+- **pdf-parse** : ingestion de PDF (RAG)
+
 ---
 
-## 7️⃣ Lancer l’application
+## 8️⃣ Lancer l’application
 
 ```bash
 LLM_MODEL="qwen2.5:7b" npm start
@@ -189,8 +231,11 @@ npm start
 
 ```bash
 LLM_MODEL=qwen2.5:7b
+LLM_EMBED_MODEL=nomic-embed-text
 LLM_BASE_URL=http://127.0.0.1:11434
 ```
+
+> `LLM_EMBED_MODEL` est utilisé pour la partie **RAG / embeddings**.
 
 Par défaut, ECHONOX refuse toute URL LLM non locale
 (choix volontaire orienté confidentialité).
@@ -212,15 +257,8 @@ Par défaut, ECHONOX refuse toute URL LLM non locale
 
 ## 🔧 Configuration
 
-Variables d’environnement utiles :
-
-```bash
-LLM_MODEL=qwen2.5:7b
-LLM_BASE_URL=http://127.0.0.1:11434
-```
-
-Par défaut, l’application refuse toute URL LLM non locale
-(choix volontaire, orienté confidentialité).
+Les options principales se configurent via les **variables d’environnement** (voir section **🧠 Variables d’environnement utiles** plus haut).
+Par défaut, l’application refuse toute URL LLM non locale (choix volontaire orienté confidentialité).
 
 ---
 

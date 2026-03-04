@@ -27,12 +27,14 @@
       <input type="radio" name="settingsTab" id="tab-appearance" />
       <input type="radio" name="settingsTab" id="tab-intelligence" />
       <input type="radio" name="settingsTab" id="tab-memory" />
+      <input type="radio" name="settingsTab" id="tab-rag" />
       <input type="radio" name="settingsTab" id="tab-advanced" />
 
       <div class="settingsTabs" role="tablist" aria-label="Sections des réglages">
         <label class="settingsTab" for="tab-appearance" role="tab" aria-controls="panel-appearance">Apparence</label>
         <label class="settingsTab" for="tab-intelligence" role="tab" aria-controls="panel-intelligence">Intelligence</label>
         <label class="settingsTab" for="tab-memory" role="tab" aria-controls="panel-memory">Mémoire</label>
+        <label class="settingsTab" for="tab-rag" role="tab" aria-controls="panel-rag">RAG</label>
         <label class="settingsTab" for="tab-advanced" role="tab" aria-controls="panel-advanced">Avancé</label>
       </div>
 
@@ -115,6 +117,73 @@
           </label>
 
           <button type="button" id="resetMemory">Réinitialiser la mémoire</button>
+        </section>
+
+        <section class="tabPanel" id="panel-rag" role="tabpanel" aria-labelledby="tab-rag">
+          <h3>RAG — Corpus & sources</h3>
+          <p style="opacity:0.85; max-width:72ch;">
+            Indexation 100% locale. Aucun document n’est indexé sans action explicite.
+            Les sources sont listables et supprimables, et tu choisis quels corpus sont utilisés par conversation.
+          </p>
+
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+              <button type="button" id="ragAddFile" style="min-width:160px;">+ Ajouter fichier</button>
+              <button type="button" id="ragAddFolder" style="min-width:160px;">+ Ajouter dossier</button>
+              <button type="button" id="ragAddNote" style="min-width:160px;">+ Ajouter note</button>
+              <button type="button" id="ragReindex" style="min-width:160px;">Réindexer</button>
+            </div>
+
+            <div id="ragStatus" style="font-size:12px; opacity:0.8;">Statut: —</div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; align-items:start;">
+              <div style="border:1px solid rgba(255,255,255,0.10); border-radius:12px; padding:10px; background: rgba(0,0,0,0.10);">
+                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                  <strong>Sources</strong>
+                  <button type="button" id="ragRefresh" style="font-size:12px; padding:6px 10px;">↻</button>
+                </div>
+                <div id="ragSourcesList" style="display:flex; flex-direction:column; gap:8px; margin-top:10px;"></div>
+              </div>
+
+              <div style="border:1px solid rgba(255,255,255,0.10); border-radius:12px; padding:10px; background: rgba(0,0,0,0.10);">
+                <strong>Corpora</strong>
+
+                <label style="margin-top:10px; display:block;">
+                  Nom du corpus
+                  <input type="text" id="ragCorpusName" placeholder="ex: Projet X" />
+                </label>
+
+                <label style="display:block;">
+                  Sources incluses
+                  <select id="ragCorpusSources" multiple style="height:120px;"></select>
+                </label>
+
+                <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+                  <button type="button" id="ragCorpusSave" style="min-width:160px;">Créer / Mettre à jour</button>
+                  <button type="button" id="ragCorpusDelete" style="min-width:160px;">Supprimer corpus</button>
+                </div>
+
+                <label style="display:block; margin-top:10px;">
+                  Corpus existants
+                  <select id="ragCorporaSelect" style="width:100%;"></select>
+                </label>
+              </div>
+            </div>
+
+            <details style="margin-top:8px;">
+              <summary>Configuration embeddings (Ollama)</summary>
+              <div style="display:flex; flex-direction:column; gap:10px; margin-top:10px;">
+                <label>
+                  Base URL Ollama
+                  <input type="text" id="ragOllamaBaseUrl" placeholder="http://127.0.0.1:11434" />
+                </label>
+                <label>
+                  Modèle d'embeddings
+                  <input type="text" id="ragEmbeddingsModel" placeholder="nomic-embed-text" />
+                </label>
+              </div>
+            </details>
+          </div>
         </section>
 
         <section class="tabPanel" id="panel-advanced" role="tabpanel" aria-labelledby="tab-advanced">
