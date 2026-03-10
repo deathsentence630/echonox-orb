@@ -1,18 +1,48 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Echonox — Web</title>
+  <link rel="stylesheet" href="style.css">
 </head>
-<body class="state-idle" data-page="orb">
-  <!-- ORB ONLY: this window is a presence. No debug, no chat, no settings. -->
-  <div id="avatar">
-    <div id="orbWrap">
-      <img id="orb" src="avatar.png" alt="ECHONOX Orb" />
-    </div>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>Echonox</h1>
+      <nav>
+        <button id="tab-chat" class="active">Chat</button>
+        <button id="tab-settings">Paramètres</button>
+        <button id="tab-debug">Debug</button>
+      </nav>
+    </header>
+    <main>
+      <div id="chat-panel" class="panel active">
+        <div class="chat-layout">
+          <aside class="conversations-list">
+            <div class="conversations-header">
+              <strong>Conversations</strong>
+              <button id="new-conversation">+ New</button>
+            </div>
+            <div id="conversation-list"></div>
+          </aside>
+          <div class="chat-main">
+            <div class="chat-messages" id="chat-messages"></div>
+            <div class="chat-composer">
+              <textarea id="chat-input" placeholder="Écris ici (Entrée = envoyer)"></textarea>
+              <button id="chat-send">Envoyer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="settings-panel" class="panel">
+        <!-- Contenu des paramètres sera intégré ici -->
+      </div>
+      <div id="debug-panel" class="panel">
+        <!-- Contenu du debug sera intégré ici -->
+      </div>
+    </main>
   </div>
-
-  <script src="renderer.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
