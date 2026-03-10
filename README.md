@@ -1,340 +1,102 @@
-# ECHONOX Orb
+# Echonox — Version Web
 
-**ECHONOX** est une expérimentation autour d’une présence numérique locale :  
-une entité visuelle minimaliste, interactive, et **pilotée par un LLM exécuté en local**.
-
-L’objectif n’est pas de créer un simple assistant, mais une **présence** :
-calme, non intrusive, respectueuse de la vie privée, et pensée pour évoluer.
+**Echonox** est une interface web légère pour interagir avec un LLM local (par défaut via Ollama).
+Cette version supprime l'orb visuel et propose une expérience proche d'une app macOS, avec une communication temps réel via WebSocket.
 
 ---
 
-## ✨ Principes clés
-
-- 🔐 **Privacy-first**  
-  Aucune donnée n’est envoyée vers des services externes.  
-  Le modèle de langage s’exécute **entièrement en local**.
-
-- 🧠 **LLM local**  
-  Intégration via Ollama (par défaut), sans dépendance cloud.
-
-- 👁️ **Présence visuelle**  
-  Une orb animée, réactive à la souris et à l’état interne (idle / listen / think / talk) avec la possibilité de désactiver les effets.
-
-- 🧱 **Architecture claire**  
-  Séparation stricte entre :
-  - `main.js` → logique système / LLM
-  - `renderer.js` → UI / interactions
-  - `index.html` / `style.css` → présentation
-  - `feature/rag` → RAG + indexation
+## ✨ Fonctionnalités
+- **Interface web pure** (HTML/CSS/JS) sans dépendance à Electron.
+- **Multi-conversations** avec historique et support RAG.
+- **Paramètres** pour configurer le modèle, le comportement, et l'apparence.
+- **Debug** pour surveiller les états et métriques.
+- **WebSocket** pour une communication bidirectionnelle avec le backend LLM.
 
 ---
 
-## 🖥️ Aperçu
+## 🚀 Installation & Démarrage
 
-- Orb centrale avec animation et bloom progressif
-- Réaction subtile à la proximité du curseur
-- États visuels pilotés par le comportement
-- Interface de chat intégrée (actuellement via le panneau chat)
+### 1. Prérequis
+- **Python 3.8+** (pour le serveur WebSocket)
+- **Node.js** (pour servir les fichiers statiques, optionnel)
+- **Ollama** (ou un autre LLM local compatible avec l'API OpenAI)
 
-## Roadmap
-
-Lire la section [Roadmap](https://github.com/deathsentence630/echonox-orb/blob/dev/ROADMAP.md)
-
----
-
-## 🚀 Installation & démarrage
-
-ECHONOX fonctionne sur **macOS**, **Windows** et **Linux**.
-L’application repose sur un **LLM exécuté localement** via Ollama.
-
----
-
-## 1️⃣ Prérequis communs
-
-Quel que soit votre système :
-
-- **Node.js** (version LTS recommandée ≥ 18)
-- **npm** (fourni avec Node.js)
-- **Electron** (nécessaire pour l'interface)
-- Un **GPU** est optionnel mais recommandé pour de meilleures performances LLM
-
-Vérification rapide :
-
+Vérifiez les versions installées :
 ```bash
-node -v
-npm -v
+python3 --version
+node --version  # Optionnel, si vous utilisez un serveur Node pour les fichiers statiques
 ```
 
 ---
 
-## 2️⃣ Installation de Node.js
-
-### macOS
-
-- Télécharger depuis : <https://nodejs.org>
-- Ou via Homebrew :
-
+### 2. Installation des dépendances Python
 ```bash
-brew install node
-```
-
-### Windows
-
-- Télécharger l’installeur officiel : <https://nodejs.org>
-- Pendant l’installation, accepter l’option **"Add to PATH"**
-
-### Linux (générique)
-
-#### Debian / Ubuntu
-
-```bash
-sudo apt update
-sudo apt install nodejs npm
-```
-
-#### Arch
-
-```bash
-sudo pacman -S nodejs npm
-```
-
-#### Fedora
-
-```bash
-sudo dnf install nodejs npm
+pip install websockets httpx
 ```
 
 ---
 
-## 3️⃣ Installation des dépendances (Electron + libs)
+### 3. Installation d'Ollama
+Suivez les instructions officielles : [ollama.com](https://ollama.com)
 
-Dans ce projet, **Electron** est géré via npm (pas besoin d’une installation globale).
-
-```bash
-npm install
-```
-
-> ✅ Cette commande installe aussi les dépendances nécessaires, dont **pdf-parse** (utilisé pour l’ingestion de PDF côté RAG).
-
----
-
-## 4️⃣ Installation d’Ollama (LLM local)
-
-ECHONOX utilise **Ollama** pour exécuter les modèles de langage localement.
-
-### macOS
-
-```bash
-brew install ollama
-```
-
-ou via l’installeur officiel :
-<https://ollama.com>
-
-### Windows
-
-La méthode la plus simple (recommandée) via **WinGet** :
-
-```powershell
-winget install --id=Ollama.Ollama -e
-```
-
-Alternative :
-- Télécharger l’installeur officiel : <https://ollama.com>
-
-Une fois installé, Ollama s’exécute en **service local**.
-
-### Linux
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
----
-
-## 5️⃣ Téléchargement des modèles (chat + embeddings RAG)
-
-ECHONOX utilise généralement **deux modèles** :
-- un modèle **chat** (réponses)
-- un modèle **embeddings** pour le RAG (indexation / recherche sémantique)
-
-### Modèle chat (exemple recommandé)
-
-Bon équilibre qualité / français :
-
+Exemple pour installer un modèle (remplacez `qwen2.5:7b` par votre modèle préféré) :
 ```bash
 ollama pull qwen2.5:7b
 ```
 
-Autres modèles possibles :
-- `llama3.2:3b` → très rapide, plus léger
-- tout modèle compatible Ollama
+---
 
-### Modèle embeddings (RAG)
-
-Pour la partie **embeddings** (RAG), télécharger aussi :
-
+### 4. Lancer le serveur WebSocket
 ```bash
-ollama pull nomic-embed-text
+# Depuis ce dépôt, dans la branche dev-websocket :
+python3 websocket_server.py
 ```
+> Le serveur écoute par défaut sur `ws://localhost:11434`.
+> Vous pouvez changer le port en modifiant le script ou via la variable `PORT`.
 
 ---
 
-## 6️⃣ Lancer Ollama
+### 5. Lancer l'interface web
+Ouvrez `index.html` dans votre navigateur (via `file://` ou un serveur web local).
 
-Avant de démarrer ECHONOX, le service Ollama doit être actif.
-
+Pour servir les fichiers statiques avec Node.js (optionnel) :
 ```bash
-ollama serve
-```
-
-(Ollama peut aussi se lancer automatiquement selon l’OS.)
-
----
-
-## 7️⃣ Installation d’ECHONOX
-
-Cloner le dépôt :
-
-```bash
-git clone https://github.com/deathsentence630/echonox-orb.git
-cd echonox-orb
-```
-
-Installer les dépendances :
-
-```bash
-npm install
-```
-
-✅ Dépendances notables :
-- **pdf-parse** : ingestion de PDF (RAG)
-
----
-
-## 8️⃣ Lancer l’application
-
-```bash
-LLM_MODEL="qwen2.5:7b" npm start
-```
-
-Sous Windows (PowerShell) :
-
-```powershell
-$env:LLM_MODEL="qwen2.5:7b"
-npm start
+npx serve .
 ```
 
 ---
 
-## 🧠 Variables d’environnement utiles
-
-```bash
-LLM_MODEL=qwen2.5:7b
-LLM_EMBED_MODEL=nomic-embed-text
-LLM_BASE_URL=http://127.0.0.1:11434
-```
-
-> `LLM_EMBED_MODEL` est utilisé pour la partie **RAG / embeddings**.
-
-Par défaut, ECHONOX refuse toute URL LLM non locale
-(choix volontaire orienté confidentialité).
+### 6. Variables d'environnement utiles
+| Variable               | Description                                  | Exemple                     |
+|------------------------|----------------------------------------------|-----------------------------|
+| `LLM_MODEL`            | Modèle LLM à utiliser.                       | `qwen2.5:7b`                |
+| `LLM_BASE_URL`         | URL de base de l'API LLM.                    | `http://localhost:11434`    |
 
 ---
 
-## ✅ Dépannage rapide
-
-- **L’application démarre mais ne répond pas**
-  → Vérifier que `ollama serve` est actif
-
-- **Erreur de connexion LLM**
-  → Vérifier `LLM_BASE_URL`
-
-- **Performances lentes**
-  → Utiliser un modèle plus léger (`3b`) ou activer le GPU si disponible
+## 🛠 Configuration
+Toutes les options sont configurables via l'interface ou en modifiant `app.js`/`websocket_server.py`.
 
 ---
 
-## 🔧 Configuration
-
-Les options principales se configurent via les **variables d’environnement** (voir section **🧠 Variables d’environnement utiles** plus haut).
-Par défaut, l’application refuse toute URL LLM non locale (choix volontaire orienté confidentialité).
-
----
-
-## 🔐 Sécurité & stockage des données
-
-ECHONOX intègre un **système de stockage sécurisé** pour les conversations et états internes.
-
-### Safe Storage (Electron)
-
-- Les conversations sont stockées **localement sur la machine**
-- Le contenu est **chiffré au repos** via l’API `safeStorage` d’Electron
-- Sur macOS, le chiffrement s’appuie sur le **Trousseau système (Keychain)**
-- Les fichiers générés sont **illisibles** s’ils sont ouverts manuellement
-
-Emplacement typique du fichier :
-
-- macOS : `~/Library/Application Support/ECHONOX/chat-threads.enc`
-- Windows : `%APPDATA%\\ECHONOX\\chat-threads.enc`
-- Linux : `~/.config/ECHONOX/chat-threads.enc`
-
-Aucune donnée n’est envoyée vers des services externes.
+## ⚠️ Notes importantes
+- **Aucune donnée n'est envoyée vers des services externes** (tout reste local).
+- Le serveur WebSocket doit être lancé **avant** d'ouvrir l'interface.
+- Pour utiliser un autre LLM, modifiez `websocket_server.py` ou définissez `LLM_BASE_URL`.
 
 ---
 
-## ⌨️ Commandes intégrées (Chat)
+## 📚 Développement
+Cette branche (`dev-websocket`) est une expérience pour une version web d'Echonox.
 
-Une fois ECHONOX lancé, certaines commandes peuvent être saisies directement dans le chat.
-
-### Commandes disponibles
-
-- `/new`  
-  Démarre une **nouvelle conversation** (l’historique précédent est conservé).
-
-D’autres commandes (rename, delete, résumé automatique) sont prévues.
-
----
-
-## 🧪 Statut du projet
-
-🚧 Projet expérimental / en évolution
-
-ECHONOX est un terrain d’exploration :
- • comportement des LLM locaux
- • interaction homme / présence numérique
- • UI minimaliste et non intrusive
-
-Ce n’est pas un produit fini, mais une base saine pour expérimenter.
+- **Frontend** : HTML/CSS/JS pur, compatible avec tous les navigateurs modernes.
+- **Backend** : Serveur WebSocket en Python, compatible avec Ollama ou d'autres LLM locaux.
 
 ---
 
 ## ⚖️ Licence
-
-Ce projet est distribué sous licence open-source.
-Voir le fichier LICENSE pour plus de détails.
-
-Toute utilisation commerciale ou dérivée doit respecter l’esprit du projet :
-transparence, respect des utilisateurs, et confidentialité.
+Ce projet est open-source. Voir [LICENSE](LICENSE) pour plus de détails.
 
 ---
 
-## 🤍 Intention
-
-ECHONOX est né d’une volonté simple :
-
-reprendre le contrôle sur nos outils,
-comprendre ce que l’on exécute,
-et redonner une place à des systèmes plus humains, plus calmes, et plus respectueux.
-
----
-
-## 📌 Notes
-
- • Aucune donnée utilisateur n’est collectée
- • Aucun tracking
- • Aucun appel réseau externe par défaut
-
----
-
-## ECHONOX — local, libre, et conscient
+## Echonox — local, léger, et respectueux de la vie privée.
